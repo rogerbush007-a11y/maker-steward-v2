@@ -48,7 +48,10 @@ struct PickerGroup: View {
                 Button {
                     onSelect(colorName)
                 } label: {
-                    Label(colorName, systemImage: "circle.fill")
+                    HStack {
+                        ColorSwatch(colorName, size: 12)
+                        Text(colorName)
+                    }
                 }
             }
         } label: {

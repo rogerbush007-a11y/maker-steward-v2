@@ -1490,6 +1490,7 @@ struct EditDeviceView: View {
     @State private var purchasePrice = ""
     @State private var notes = ""
     @State private var imageData: Data? = nil
+    @State private var imageZoom: CGFloat = 80
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1497,6 +1498,44 @@ struct EditDeviceView: View {
             Divider()
             ScrollView {
                 VStack(spacing: 14) {
+                    VStack(spacing: 4) {
+                        HStack {
+                            Text("图片").frame(width: 60, alignment: .leading)
+                            Spacer()
+                            ZStack {
+                                if let data = imageData, let img = NSImage(data: data) {
+                                    Image(nsImage: img).resizable().aspectRatio(contentMode: .fill)
+                                        .scaleEffect(imageZoom / 80.0, anchor: .center)
+                                        .frame(width: 80, height: 80)
+                                        .clipped()
+                                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(nsColor: .separatorColor), lineWidth: 0.5))
+                                } else {
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .strokeBorder(Color(nsColor: .separatorColor), style: StrokeStyle(lineWidth: 1, dash: [4]))
+                                        .frame(width: 80, height: 80)
+                                        .overlay(Image(systemName: "photo.badge.plus").font(.title2).foregroundStyle(.secondary))
+                                }
+                                Color.clear.contentShape(Rectangle()).onTapGesture(perform: pickDeviceImage)
+                            }
+                            .frame(width: 80, height: 80)
+                            if imageData != nil {
+                                Button("清除") { imageData = nil }
+                                    .buttonStyle(.borderless).font(.caption).foregroundStyle(.red)
+                            }
+                            Spacer()
+                        }
+                        if imageData != nil {
+                            HStack(spacing: 6) {
+                                Image(systemName: "minus").font(.caption).foregroundStyle(.secondary)
+                                Slider(value: $imageZoom, in: 80...400, step: 10).frame(width: 100)
+                                Image(systemName: "plus").font(.caption).foregroundStyle(.secondary)
+                                Text("×\(String(format: "%.1f", imageZoom / 80.0))")
+                                    .font(.caption2).foregroundStyle(.secondary).frame(width: 40)
+                            }
+                            .padding(.leading, 60)
+                        }
+                    }
                     HStack { Text("品牌").frame(width: 60, alignment: .leading); TextField("品牌", text: $brand).textFieldStyle(.roundedBorder) }
                     HStack { Text("型号").frame(width: 60, alignment: .leading); TextField("型号", text: $modelName).textFieldStyle(.roundedBorder) }
                     Divider().padding(.vertical, 4)
@@ -1521,6 +1560,7 @@ struct EditDeviceView: View {
                     device.purchaseDate = purchaseDate
                     device.purchasePrice = price
                     device.notes = notes
+                    device.imageData = croppedDeviceImageData()
                     try? modelContext.save()
                     NotificationCenter.default.post(name: filamentDataChanged, object: nil)
                     dismiss()
@@ -1533,6 +1573,57 @@ struct EditDeviceView: View {
             brand = device.brand; modelName = device.model; purchaseDate = device.purchaseDate
             purchasePrice = String(format: "%.0f", device.purchasePrice); notes = device.notes; imageData = device.imageData
         }
+    }
+
+    private func pickDeviceImage() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image, .png, .jpeg, .tiff]
+        panel.canChooseFiles = true
+        panel.begin { response in
+            guard response == .OK, let url = panel.url, let nsImage = NSImage(contentsOf: url) else { return }
+            imageData = normalizedImageData(from: nsImage)
+            imageZoom = 80
+        }
+    }
+
+    private func croppedDeviceImageData() -> Data? {
+        guard let data = imageData, let nsImage = NSImage(data: data),
+              let cgImage = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            return imageData
+        }
+        let scale = imageZoom / 80.0
+        guard abs(scale - 1.0) > 0.01 else { return imageData }
+        let w = CGFloat(cgImage.width)
+        let h = CGFloat(cgImage.height)
+        let cropW = w / scale
+        let cropH = h / scale
+        let cropX = (w - cropW) / 2
+        let cropY = (h - cropH) / 2
+        guard let cropped = cgImage.cropping(to: CGRect(x: cropX, y: cropY, width: cropW, height: cropH)) else { return imageData }
+        return jpegData(from: NSImage(cgImage: cropped, size: NSSize(width: 400, height: 400)))
+    }
+
+    private func normalizedImageData(from nsImage: NSImage) -> Data? {
+        guard let cgImage = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
+        let w = cgImage.width
+        let h = cgImage.height
+        let size = min(w, h)
+        let cropRect = CGRect(x: (w - size) / 2, y: (h - size) / 2, width: size, height: size)
+        guard let cropped = cgImage.cropping(to: cropRect) else { return nil }
+        let result = NSImage(size: NSSize(width: 400, height: 400))
+        result.lockFocus()
+        NSColor.white.setFill()
+        NSRect(x: 0, y: 0, width: 400, height: 400).fill()
+        NSImage(cgImage: cropped, size: NSSize(width: size, height: size))
+            .draw(in: NSRect(x: 0, y: 0, width: 400, height: 400))
+        result.unlockFocus()
+        return jpegData(from: result)
+    }
+
+    private func jpegData(from image: NSImage) -> Data? {
+        guard let tiff = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiff) else { return nil }
+        return bitmap.representation(using: .jpeg, properties: [.compressionFactor: 0.85])
     }
 }
 
