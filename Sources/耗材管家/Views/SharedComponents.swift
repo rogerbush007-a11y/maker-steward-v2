@@ -62,6 +62,7 @@ struct PickerGroup: View {
 
 struct ColorPaletteGrid: View {
     let onSelect: (String) -> Void
+    @State private var customColor: Color = .orange
 
     private let columns = Array(repeating: GridItem(.fixed(34), spacing: 8), count: 6)
 
@@ -69,6 +70,21 @@ struct ColorPaletteGrid: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("选择颜色")
                 .font(.headline)
+            HStack(spacing: 10) {
+                ColorPicker("自定义", selection: $customColor, supportsOpacity: false)
+                    .labelsHidden()
+                    .frame(width: 40)
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(customColor)
+                    .frame(width: 34, height: 28)
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color(nsColor: .separatorColor), lineWidth: 0.5))
+                Button("使用自定义颜色") {
+                    onSelect(Filament.hexString(for: customColor))
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+            }
+            Divider()
             LazyVGrid(columns: columns, spacing: 10) {
                 ForEach(Filament.presetColors, id: \.self) { colorName in
                     Button {
@@ -89,6 +105,6 @@ struct ColorPaletteGrid: View {
             }
         }
         .padding(12)
-        .frame(width: 270)
+        .frame(width: 300)
     }
 }

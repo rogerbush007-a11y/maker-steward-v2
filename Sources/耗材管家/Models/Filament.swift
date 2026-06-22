@@ -1,6 +1,7 @@
 import Foundation
 import SwiftData
 import SwiftUI
+import AppKit
 
 /// 耗材状态
 enum FilamentStatus: String, Codable, CaseIterable {
@@ -174,6 +175,9 @@ extension Filament {
     }
 
     static func colorValue(for name: String) -> Color {
+        if let color = colorFromHex(name) {
+            return color
+        }
         let colors: [String: Color] = [
             "黑色": .black, "白色": Color(white: 0.95), "灰色": .gray, "深空灰": Color(white: 0.3),
             "红色": .red, "蓝色": .blue, "深蓝": Color(red: 0, green: 0, blue: 0.5),
@@ -193,6 +197,14 @@ extension Filament {
         return colors[name] ?? Color(white: 0.6)
     }
 
+    static func hexString(for color: Color) -> String {
+        let nsColor = NSColor(color).usingColorSpace(.sRGB) ?? .gray
+        let red = Int(round(nsColor.redComponent * 255))
+        let green = Int(round(nsColor.greenComponent * 255))
+        let blue = Int(round(nsColor.blueComponent * 255))
+        return String(format: "#%02X%02X%02X", red, green, blue)
+    }
+
     private static func mergedPresets(_ defaults: [String], key: String) -> [String] {
         let custom = UserDefaults.standard.stringArray(forKey: key) ?? []
         return (defaults + custom).reduce(into: [String]()) { result, item in
@@ -210,5 +222,15 @@ extension Filament {
         guard !custom.contains(where: { $0.caseInsensitiveCompare(trimmed) == .orderedSame }) else { return }
         custom.append(trimmed)
         UserDefaults.standard.set(custom, forKey: key)
+    }
+
+    private static func colorFromHex(_ value: String) -> Color? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hex = trimmed.hasPrefix("#") ? String(trimmed.dropFirst()) : trimmed
+        guard hex.count == 6, let intValue = Int(hex, radix: 16) else { return nil }
+        let red = Double((intValue >> 16) & 0xFF) / 255.0
+        let green = Double((intValue >> 8) & 0xFF) / 255.0
+        let blue = Double(intValue & 0xFF) / 255.0
+        return Color(red: red, green: green, blue: blue)
     }
 }
