@@ -27,14 +27,14 @@ struct AppPaths {
 
     // MARK: - 应用数据根目录
 
-    /// 主数据目录：~/Library/Application Support/耗材管家/
+    /// 主数据目录：~/Library/Application Support/耗材管家V2/
     /// Sandbox 环境下自动映射到 Container 目录
     static let appSupport: URL = {
         let fm = FileManager.default
         guard let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
             fatalError("无法获取 Application Support 目录")
         }
-        let dir = base.appendingPathComponent("耗材管家", isDirectory: true)
+        let dir = base.appendingPathComponent("耗材管家V2", isDirectory: true)
         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }()
