@@ -249,12 +249,50 @@ struct StatisticsView: View {
     }
 
     private var platformSalesTable: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
             Text("售出平台统计").font(.subheadline).fontWeight(.semibold)
             let rows = platformSalesData
             if rows.isEmpty {
                 Text("暂无平台销售数据").font(.caption).foregroundStyle(.secondary)
             } else {
+                HStack(alignment: .center, spacing: 28) {
+                    Spacer()
+                    Chart(rows, id: \.platform) { row in
+                        let total = rows.reduce(0) { $0 + $1.quantity }
+                        let pct = Double(row.quantity) / Double(max(total, 1)) * 100
+                        SectorMark(angle: .value("销量", row.quantity), innerRadius: .ratio(0.52))
+                            .foregroundStyle(by: .value("平台", row.platform))
+                            .annotation(position: .overlay) {
+                                if pct >= 8 {
+                                    Text("\(String(format: "%.0f", pct))%")
+                                        .font(.caption)
+                                        .fontWeight(.bold)
+                                        .foregroundStyle(.white)
+                                }
+                            }
+                    }
+                    .chartLegend(.hidden)
+                    .frame(width: 150, height: 150)
+
+                    VStack(spacing: 6) {
+                        let palette: [Color] = [.blue, .green, .orange, .purple, .red, .cyan, .yellow, .pink]
+                        let totalQty = rows.reduce(0) { $0 + $1.quantity }
+                        ForEach(Array(rows.prefix(6).enumerated()), id: \.offset) { i, row in
+                            let pct = Double(row.quantity) / Double(max(totalQty, 1)) * 100
+                            HStack(spacing: 0) {
+                                Circle().fill(palette[i % palette.count]).frame(width: 10, height: 10).padding(.trailing, 6)
+                                Text(row.platform).font(.subheadline).lineLimit(1).frame(width: 90, alignment: .leading)
+                                Text("\(row.quantity)个").font(.subheadline).fontWeight(.medium).frame(width: 44, alignment: .center)
+                                Text("\(String(format: "%.1f", pct))%").font(.subheadline).foregroundStyle(.secondary).frame(width: 52, alignment: .trailing)
+                                Text("¥\(String(format: "%.0f", row.revenue))").font(.subheadline).frame(width: 62, alignment: .trailing)
+                            }
+                            .padding(.vertical, 5)
+                        }
+                    }
+                    Spacer()
+                }
+                .glassPanel(cornerRadius: 8, opacity: 0.45)
+
                 VStack(spacing: 0) {
                     HStack(spacing: 0) {
                         Text("平台").font(.caption).fontWeight(.semibold).frame(maxWidth: .infinity, alignment: .leading)
