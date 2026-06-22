@@ -134,9 +134,20 @@ final class Filament {
 // MARK: - 预设值
 extension Filament {
     private static let defaultPresetBrands = [
-        "Bambu Lab", "eSun", "Polymaker", "天瑞",
+        "Bambu Lab", "eSun", "Polymaker", "TINMORRY",
         "Sunlu", "Elegoo", "Anycubic", "Creality",
-        "闪铸", "三绿", "金丝", "其他"
+        "Flashforge", "Jins", "其他"
+    ]
+
+    private static let brandAliases: [String: String] = [
+        "拓竹": "Bambu Lab",
+        "易生": "eSun",
+        "天瑞": "TINMORRY",
+        "三绿": "Sunlu",
+        "闪铸": "Flashforge",
+        "创想三维": "Creality",
+        "纵维立方": "Anycubic",
+        "金丝": "Jins"
     ]
 
     private static let defaultPresetMaterials = [
@@ -157,7 +168,7 @@ extension Filament {
     ]
 
     static var presetBrands: [String] {
-        mergedPresets(defaultPresetBrands, key: "filament_custom_brands")
+        mergedPresets(defaultPresetBrands, key: "filament_custom_brands", canonicalizer: canonicalBrandName)
     }
 
     static var presetMaterials: [String] {
@@ -169,7 +180,7 @@ extension Filament {
     }
 
     static func rememberPreset(brand: String? = nil, material: String? = nil, color: String? = nil) {
-        appendPreset(brand, defaults: defaultPresetBrands, key: "filament_custom_brands")
+        appendPreset(brand, defaults: defaultPresetBrands, key: "filament_custom_brands", canonicalizer: canonicalBrandName)
         appendPreset(material, defaults: defaultPresetMaterials, key: "filament_custom_materials")
         appendPreset(color, defaults: defaultPresetColors, key: "filament_custom_colors")
     }
@@ -206,9 +217,13 @@ extension Filament {
     }
 
     private static func mergedPresets(_ defaults: [String], key: String) -> [String] {
+        mergedPresets(defaults, key: key, canonicalizer: { $0 })
+    }
+
+    private static func mergedPresets(_ defaults: [String], key: String, canonicalizer: (String) -> String) -> [String] {
         let custom = UserDefaults.standard.stringArray(forKey: key) ?? []
         return (defaults + custom).reduce(into: [String]()) { result, item in
-            let value = item.trimmingCharacters(in: .whitespacesAndNewlines)
+            let value = canonicalizer(item.trimmingCharacters(in: .whitespacesAndNewlines))
             if !value.isEmpty && !result.contains(where: { $0.caseInsensitiveCompare(value) == .orderedSame }) {
                 result.append(value)
             }
@@ -216,12 +231,22 @@ extension Filament {
     }
 
     private static func appendPreset(_ value: String?, defaults: [String], key: String) {
+        appendPreset(value, defaults: defaults, key: key, canonicalizer: { $0 })
+    }
+
+    private static func appendPreset(_ value: String?, defaults: [String], key: String, canonicalizer: (String) -> String) {
         guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else { return }
-        guard !defaults.contains(where: { $0.caseInsensitiveCompare(trimmed) == .orderedSame }) else { return }
+        let canonical = canonicalizer(trimmed)
+        guard !defaults.contains(where: { $0.caseInsensitiveCompare(canonical) == .orderedSame }) else { return }
         var custom = UserDefaults.standard.stringArray(forKey: key) ?? []
-        guard !custom.contains(where: { $0.caseInsensitiveCompare(trimmed) == .orderedSame }) else { return }
-        custom.append(trimmed)
+        custom = custom.map(canonicalizer)
+        guard !custom.contains(where: { $0.caseInsensitiveCompare(canonical) == .orderedSame }) else { return }
+        custom.append(canonical)
         UserDefaults.standard.set(custom, forKey: key)
+    }
+
+    private static func canonicalBrandName(_ brand: String) -> String {
+        brandAliases[brand] ?? brand
     }
 
     private static func colorFromHex(_ value: String) -> Color? {
