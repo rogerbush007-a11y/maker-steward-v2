@@ -37,7 +37,7 @@ struct ProductImagePicker: View {
                         .strokeBorder(isTargeted ? Color.accentColor : Color(nsColor: .separatorColor),
                                       style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
                         .frame(width: imageSize, height: imageSize)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(isTargeted ? Color.accentColor.opacity(0.05) : Color.clear))
+                        .background(RoundedRectangle(cornerRadius: 8).fill(.thinMaterial.opacity(isTargeted ? 0.7 : 0.36)))
 
                     VStack(spacing: 4) {
                         Image(systemName: "photo.badge.plus").font(.title2).foregroundStyle(.secondary)

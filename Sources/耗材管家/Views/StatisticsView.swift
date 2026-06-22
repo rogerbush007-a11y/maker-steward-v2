@@ -72,7 +72,7 @@ struct StatisticsView: View {
                         Text("共 \(allFilaments.count) 卷").font(.caption2).foregroundStyle(.tertiary)
                         Image(systemName: "chevron.down").font(.caption2).foregroundStyle(.tertiary).rotationEffect(.degrees(showFilamentDetail ? 180 : 0))
                     }.padding(10).frame(width: 150)
-                }.buttonStyle(.plain).background(Color.cyan.opacity(0.06)).clipShape(RoundedRectangle(cornerRadius: 8)); Spacer() }.frame(maxWidth: .infinity)
+                }.buttonStyle(.plain).glassPanel(cornerRadius: 8, opacity: 0.48); Spacer() }.frame(maxWidth: .infinity)
 
                 HStack(spacing: 0) { Spacer(); Button(action: { withAnimation { showDeviceDetail.toggle() } }) {
                     VStack(spacing: 2) {
@@ -82,7 +82,7 @@ struct StatisticsView: View {
                         Text("共 \(allDevices.count) 台").font(.caption2).foregroundStyle(.tertiary)
                         Image(systemName: "chevron.down").font(.caption2).foregroundStyle(.tertiary).rotationEffect(.degrees(showDeviceDetail ? 180 : 0))
                     }.padding(10).frame(width: 150)
-                }.buttonStyle(.plain).background(Color.purple.opacity(0.06)).clipShape(RoundedRectangle(cornerRadius: 8)); Spacer() }.frame(maxWidth: .infinity)
+                }.buttonStyle(.plain).glassPanel(cornerRadius: 8, opacity: 0.48); Spacer() }.frame(maxWidth: .infinity)
             }
 
             if showFilamentDetail {
@@ -102,7 +102,7 @@ struct StatisticsView: View {
                         }.padding(.vertical, 3).padding(.horizontal, 8)
                         Divider().padding(.leading, 8)
                     }
-                }.padding(8).background(Color(nsColor: .controlBackgroundColor).opacity(0.5)).clipShape(RoundedRectangle(cornerRadius: 8))
+                }.padding(8).glassPanel(cornerRadius: 8, opacity: 0.5)
             }
 
             if showDeviceDetail {
@@ -123,7 +123,7 @@ struct StatisticsView: View {
                         }.padding(.vertical, 3).padding(.horizontal, 8)
                         Divider().padding(.leading, 8)
                     }
-                }.padding(8).background(Color(nsColor: .controlBackgroundColor).opacity(0.5)).clipShape(RoundedRectangle(cornerRadius: 8))
+                }.padding(8).glassPanel(cornerRadius: 8, opacity: 0.5)
             }
         }
     }
@@ -272,7 +272,7 @@ struct StatisticsView: View {
                     Image(systemName: "chevron.down").font(.caption2).foregroundStyle(.tertiary).frame(width: 12)
                         .rotationEffect(.degrees(isExpanded ? 180 : 0))
                 }.padding(.vertical, 6).padding(.horizontal, 4).contentShape(Rectangle())
-                    .background(Color(nsColor: .controlBackgroundColor).opacity(0.3)).clipShape(RoundedRectangle(cornerRadius: 6))
+                    .glassPanel(cornerRadius: 6, opacity: 0.42)
             }.buttonStyle(.plain)
 
             if isExpanded {
@@ -291,7 +291,7 @@ struct StatisticsView: View {
                         }.padding(.horizontal, 12).padding(.vertical, 4)
                         Divider().padding(.leading, 12)
                     }
-                }.padding(.leading, 20).background(Color(nsColor: .controlBackgroundColor).opacity(0.12)).clipShape(RoundedRectangle(cornerRadius: 6))
+                }.padding(.leading, 20).glassPanel(cornerRadius: 6, opacity: 0.34)
             }
         }
     }
@@ -376,6 +376,6 @@ struct OverviewCard: View {
             Image(systemName: icon).font(.title3).foregroundStyle(color)
             Text(value).font(.title2).fontWeight(.bold).foregroundStyle(color)
             Text(label).font(.caption)
-        }.padding(14).frame(maxWidth: .infinity).background(color.opacity(0.06)).clipShape(RoundedRectangle(cornerRadius: 10))
+        }.padding(14).frame(maxWidth: .infinity).glassPanel(cornerRadius: 10, opacity: 0.5)
     }
 }

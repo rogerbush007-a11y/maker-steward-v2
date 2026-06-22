@@ -31,7 +31,7 @@ struct DeviceListView: View {
             Divider()
             deviceList
         }
-        .background(.clear)
+        .background(.thinMaterial.opacity(0.24))
         .onAppear { refresh() }
         .sheet(isPresented: $showAddSheet) { AddDeviceView() }
     }
@@ -99,7 +99,7 @@ struct DeviceRow: View {
             Text("¥\(String(format: "%.0f", device.purchasePrice))").font(.caption).foregroundStyle(.secondary)
         }
         .padding(.horizontal, 12).padding(.vertical, 4)
-        .background(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
+        .background(isSelected ? AnyShapeStyle(.regularMaterial) : AnyShapeStyle(Color.clear))
         .clipShape(RoundedRectangle(cornerRadius: 4))
     }
 }

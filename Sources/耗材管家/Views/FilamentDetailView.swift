@@ -51,8 +51,7 @@ struct FilamentDetailView: View {
                             .foregroundStyle(.orange)
                     }
                     .padding(12)
-                    .background(Color.orange.opacity(0.1))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .glassPanel(cornerRadius: 8, opacity: 0.55)
                 }
 
                 // 标题
@@ -110,7 +109,7 @@ struct FilamentDetailView: View {
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
                             RoundedRectangle(cornerRadius: 4)
-                                .fill(Color(nsColor: .controlBackgroundColor))
+                                .fill(.thinMaterial)
                                 .frame(height: 8)
                             RoundedRectangle(cornerRadius: 4)
                                 .fill(
@@ -175,7 +174,7 @@ struct FilamentDetailView: View {
             }
             .padding(24)
         }
-        .background(Color(nsColor: NSColor.windowBackgroundColor))
+        .background(.thinMaterial.opacity(0.18))
         }
         .sheet(isPresented: $showConsumptionSheet) {
             consumptionSheet
@@ -379,8 +378,7 @@ struct InfoTile: View {
         }
         .padding(8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(nsColor: .controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .glassPanel(cornerRadius: 6, opacity: 0.5)
     }
 }
 
@@ -399,7 +397,6 @@ struct StatBox: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(Color(nsColor: .controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .glassPanel(cornerRadius: 6, opacity: 0.5)
     }
 }

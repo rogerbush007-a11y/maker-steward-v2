@@ -99,7 +99,9 @@ struct ContentView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        ZStack {
+            LiquidGlassBackground()
+            VStack(spacing: 0) {
                 Picker("", selection: $sidebarTab) {
                 Text("🖨 \(Localized.str("设备"))").tag("设备")
                 Text("📄 \(Localized.str("耗材"))").tag("耗材")
@@ -125,6 +127,7 @@ struct ContentView: View {
                         }
                     }
                     .frame(width: 260)
+                    .background(.thinMaterial.opacity(0.58))
                     
 
                     Divider()
@@ -161,6 +164,7 @@ struct ContentView: View {
                     }
                 }
             }
+        }
         }
         .id(refreshToken)
         .frame(minWidth: 820, minHeight: 560)
@@ -219,12 +223,12 @@ struct ContentView: View {
                             }
                         }
                         .padding(8)
-                        .background(Color.orange.opacity(0.08)).clipShape(RoundedRectangle(cornerRadius: 6))
+                        .glassPanel(cornerRadius: 6, opacity: 0.45)
                         .onTapGesture { selectedGroup = group }
                     }
                 }
                 .padding(16)
-                .background(.clear).clipShape(RoundedRectangle(cornerRadius: 10))
+                .glassPanel(cornerRadius: 10, opacity: 0.55)
                 .padding(.horizontal, 32).padding(.top, 16)
             }
             Spacer()
@@ -316,7 +320,7 @@ struct SidebarView: View {
             Divider()
             groupList
         }
-        .background(.clear)
+        .background(.thinMaterial.opacity(0.24))
     }
 
     /// 需要补货的组数
@@ -449,7 +453,7 @@ struct GroupRow: View {
             }
         }
         .padding(.horizontal, 12).padding(.vertical, 6)
-        .background(isSelected ? Color.accentColor.opacity(0.2) : Color.clear)
+        .background(isSelected ? AnyShapeStyle(.regularMaterial) : AnyShapeStyle(Color.clear))
         .clipShape(RoundedRectangle(cornerRadius: 4))
     }
 }
@@ -501,8 +505,7 @@ struct GroupDetailView: View {
                             .foregroundStyle(.orange)
                     }
                     .padding(12)
-                    .background(Color.orange.opacity(0.1))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .glassPanel(cornerRadius: 8, opacity: 0.55)
                 }
 
                 // 标题（点击品牌 logo 可更换图片）
@@ -611,7 +614,7 @@ struct GroupDetailView: View {
             }
             .padding(24)
         }
-        .background(.clear)
+        .background(.thinMaterial.opacity(0.18))
     }
 
     /// 消耗总成本（均价×消耗）
@@ -704,8 +707,7 @@ struct StatCard: View {
         }
         .padding(8)
         .frame(maxWidth: .infinity)
-        .background(.clear)
-        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .glassPanel(cornerRadius: 6, opacity: 0.5)
     }
 }
 
@@ -788,7 +790,7 @@ struct FilamentMiniCard: View {
                     ZStack(alignment: .leading) {
                         // 灰色背景
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(Color(nsColor: .controlBackgroundColor))
+                            .fill(.thinMaterial)
                             .frame(width: 200, height: 10)
                         // 剩余量颜色条
                         RoundedRectangle(cornerRadius: 4)
@@ -820,8 +822,7 @@ struct FilamentMiniCard: View {
             }
         }
         .padding(8)
-        .background(.clear)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .glassPanel(cornerRadius: 8, opacity: 0.36)
         .contentShape(Rectangle())
         .sheet(isPresented: $showConsumePopover) {
             consumePopover
@@ -903,8 +904,7 @@ struct FilamentMiniCard: View {
                                     .frame(maxWidth: .infinity, alignment: .center)
                             }
                             .padding(6)
-                            .background(Color(nsColor: .controlBackgroundColor).opacity(0.3))
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                            .glassPanel(cornerRadius: 6, opacity: 0.38)
                         }
                         Button("＋ 添加产品") {
                             productItems.append(ProductItem())
@@ -1220,7 +1220,7 @@ struct TrafficTitlebar<Right: View>: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(.clear)
+        .background(.thinMaterial.opacity(0.75))
     }
 }
 
@@ -1413,7 +1413,7 @@ struct DeviceDetailView: View {
             }
             .padding(24)
         }
-        .background(.clear)
+        .background(.thinMaterial.opacity(0.18))
         .sheet(isPresented: $showZoom) {
             VStack(spacing: 12) {
                 HStack {

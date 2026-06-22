@@ -115,7 +115,7 @@ struct ImportView: View {
                 Spacer()
             }
             .padding(12)
-            .background(Color.green.opacity(0.08))
+            .background(.thinMaterial.opacity(0.65))
 
             Divider()
 
@@ -190,8 +190,7 @@ struct ImportView: View {
                             }
                         }
                         .padding(12)
-                        .background(Color(nsColor: .controlBackgroundColor))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .glassPanel(cornerRadius: 8, opacity: 0.48)
                     }
 
                     Button("＋ 添加一项") {

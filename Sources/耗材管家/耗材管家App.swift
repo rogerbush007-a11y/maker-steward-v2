@@ -57,6 +57,8 @@ struct WindowAccessor: NSViewRepresentable {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             for w in NSApp.windows {
                 w.titlebarAppearsTransparent = true
+                w.isOpaque = false
+                w.backgroundColor = .clear
             }
         }
         return NSView()

@@ -41,7 +41,7 @@ struct ProductListView: View {
             Divider()
             productList
         }
-        .background(.clear)
+        .background(.thinMaterial.opacity(0.24))
         .onAppear { refresh() }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("filamentDataChanged"))) { _ in refresh() }
         .sheet(isPresented: $showAddProduct) {
@@ -131,7 +131,7 @@ struct ProductRow: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
+        .background(isSelected ? AnyShapeStyle(.regularMaterial) : AnyShapeStyle(Color.clear))
         .clipShape(RoundedRectangle(cornerRadius: 4))
         .padding(.horizontal, 6)
     }
@@ -355,8 +355,7 @@ struct ProductDetailView: View {
                     }
                 }
                 .padding(8)
-                .background(.clear)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .glassPanel(cornerRadius: 6, opacity: 0.5)
             }
 
             HStack {

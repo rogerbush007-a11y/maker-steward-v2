@@ -268,7 +268,7 @@ struct AddFilamentView: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 12)
                     .strokeBorder(isTargeted ? Color.accentColor : Color(nsColor: .separatorColor), style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
-                    .background(RoundedRectangle(cornerRadius: 12).fill(isTargeted ? Color.accentColor.opacity(0.05) : Color.clear))
+                    .background(RoundedRectangle(cornerRadius: 12).fill(.thinMaterial.opacity(isTargeted ? 0.7 : 0.38)))
                     .frame(height: 140)
 
                 VStack(spacing: 12) {
@@ -305,7 +305,7 @@ struct AddFilamentView: View {
                 Spacer()
             }
             .padding(12)
-            .background(Color.green.opacity(0.08))
+            .background(.thinMaterial.opacity(0.65))
 
             Divider()
 
@@ -336,8 +336,7 @@ struct AddFilamentView: View {
                             }
                         }
                         .padding(12)
-                        .background(Color(nsColor: .controlBackgroundColor))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .glassPanel(cornerRadius: 8, opacity: 0.48)
                     }
 
                     Button("＋ 添加一项") {
