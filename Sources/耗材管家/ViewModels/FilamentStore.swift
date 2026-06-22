@@ -14,6 +14,7 @@ final class FilamentStore {
     // MARK: - 耗材增删改查
 
     func addFilament(_ filament: Filament) {
+        Filament.rememberPreset(brand: filament.brand, material: filament.material, color: filament.color)
         modelContext.insert(filament)
         // 入库同时记一笔价格记录
         let priceRecord = PriceRecord(
@@ -27,11 +28,13 @@ final class FilamentStore {
         modelContext.insert(priceRecord)
         filament.priceHistory.append(priceRecord)
         try? modelContext.save()
+        NotificationCenter.default.post(name: filamentDataChanged, object: nil)
     }
 
     func deleteFilament(_ filament: Filament) {
         modelContext.delete(filament)
         try? modelContext.save()
+        NotificationCenter.default.post(name: filamentDataChanged, object: nil)
     }
 
     func recordConsumption(filament: Filament, weightUsed: Int, modelName: String = "") {
@@ -49,6 +52,7 @@ final class FilamentStore {
             modelContext.insert(record)
         }
         try? modelContext.save()
+        NotificationCenter.default.post(name: filamentDataChanged, object: nil)
     }
 
     // 入库补充
@@ -71,6 +75,7 @@ final class FilamentStore {
             filament.priceHistory.append(priceRecord)
         }
         try? modelContext.save()
+        NotificationCenter.default.post(name: filamentDataChanged, object: nil)
     }
 
     // MARK: - 统计计算

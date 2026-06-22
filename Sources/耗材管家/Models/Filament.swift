@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import SwiftUI
 
 /// 耗材状态
 enum FilamentStatus: String, Codable, CaseIterable {
@@ -131,23 +132,83 @@ final class Filament {
 
 // MARK: - 预设值
 extension Filament {
-    static let presetBrands = [
+    private static let defaultPresetBrands = [
         "Bambu Lab", "eSun", "Polymaker", "天瑞",
         "Sunlu", "Elegoo", "Anycubic", "Creality",
         "闪铸", "三绿", "金丝", "其他"
     ]
 
-    static let presetMaterials = [
+    private static let defaultPresetMaterials = [
         "PLA", "PLA+", "PETG", "ABS", "ASA",
         "TPU", "PA(尼龙)", "PA-CF(碳纤尼龙)", "PC",
         "PETG-CF", "PLA-CF", "PVA(水溶)", "HIPS", "其他"
     ]
 
-    static let presetColors = [
+    private static let defaultPresetColors = [
         "黑色", "白色", "灰色", "深空灰",
         "红色", "蓝色", "深蓝", "绿色",
         "黄色", "橙色", "紫色", "粉色",
         "棕色", "透明", "夜光绿", "丝绸银",
-        "丝绸金", "渐变", "哑光黑", "木质", "其他"
+        "丝绸金", "渐变", "哑光黑", "木质",
+        "米色", "奶白", "象牙白", "银色", "金色",
+        "玫瑰金", "青色", "湖蓝", "天蓝", "墨绿",
+        "军绿色", "酒红", "荧光绿", "荧光橙", "彩虹", "其他"
     ]
+
+    static var presetBrands: [String] {
+        mergedPresets(defaultPresetBrands, key: "filament_custom_brands")
+    }
+
+    static var presetMaterials: [String] {
+        mergedPresets(defaultPresetMaterials, key: "filament_custom_materials")
+    }
+
+    static var presetColors: [String] {
+        mergedPresets(defaultPresetColors, key: "filament_custom_colors")
+    }
+
+    static func rememberPreset(brand: String? = nil, material: String? = nil, color: String? = nil) {
+        appendPreset(brand, defaults: defaultPresetBrands, key: "filament_custom_brands")
+        appendPreset(material, defaults: defaultPresetMaterials, key: "filament_custom_materials")
+        appendPreset(color, defaults: defaultPresetColors, key: "filament_custom_colors")
+    }
+
+    static func colorValue(for name: String) -> Color {
+        let colors: [String: Color] = [
+            "黑色": .black, "白色": Color(white: 0.95), "灰色": .gray, "深空灰": Color(white: 0.3),
+            "红色": .red, "蓝色": .blue, "深蓝": Color(red: 0, green: 0, blue: 0.5),
+            "绿色": .green, "黄色": .yellow, "橙色": .orange, "紫色": .purple,
+            "粉色": .pink, "棕色": .brown, "透明": Color(white: 0.7).opacity(0.3),
+            "夜光绿": Color(red: 0, green: 0.9, blue: 0.3), "丝绸银": Color(white: 0.7),
+            "丝绸金": Color(red: 0.85, green: 0.65, blue: 0.2), "哑光黑": Color(white: 0.15),
+            "木质": Color(red: 0.6, green: 0.4, blue: 0.2), "米色": Color(red: 0.86, green: 0.78, blue: 0.62),
+            "奶白": Color(red: 0.96, green: 0.93, blue: 0.84), "象牙白": Color(red: 1.0, green: 0.96, blue: 0.82),
+            "银色": Color(white: 0.78), "金色": Color(red: 0.95, green: 0.72, blue: 0.18),
+            "玫瑰金": Color(red: 0.86, green: 0.55, blue: 0.47), "青色": .cyan,
+            "湖蓝": Color(red: 0.0, green: 0.55, blue: 0.8), "天蓝": Color(red: 0.35, green: 0.7, blue: 1.0),
+            "墨绿": Color(red: 0.0, green: 0.24, blue: 0.16), "军绿色": Color(red: 0.29, green: 0.36, blue: 0.18),
+            "酒红": Color(red: 0.45, green: 0.0, blue: 0.12), "荧光绿": Color(red: 0.45, green: 1.0, blue: 0.0),
+            "荧光橙": Color(red: 1.0, green: 0.38, blue: 0.0)
+        ]
+        return colors[name] ?? Color(white: 0.6)
+    }
+
+    private static func mergedPresets(_ defaults: [String], key: String) -> [String] {
+        let custom = UserDefaults.standard.stringArray(forKey: key) ?? []
+        return (defaults + custom).reduce(into: [String]()) { result, item in
+            let value = item.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !value.isEmpty && !result.contains(where: { $0.caseInsensitiveCompare(value) == .orderedSame }) {
+                result.append(value)
+            }
+        }
+    }
+
+    private static func appendPreset(_ value: String?, defaults: [String], key: String) {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else { return }
+        guard !defaults.contains(where: { $0.caseInsensitiveCompare(trimmed) == .orderedSame }) else { return }
+        var custom = UserDefaults.standard.stringArray(forKey: key) ?? []
+        guard !custom.contains(where: { $0.caseInsensitiveCompare(trimmed) == .orderedSame }) else { return }
+        custom.append(trimmed)
+        UserDefaults.standard.set(custom, forKey: key)
+    }
 }

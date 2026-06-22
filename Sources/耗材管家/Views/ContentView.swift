@@ -519,9 +519,8 @@ struct GroupDetailView: View {
                             .contentShape(Rectangle())
                             .onTapGesture { pickBrandLogo() }
                     } else {
-                        brandIcon(group.brand)
+                        BrandTextLogo(brand: group.brand)
                             .frame(width: 48, height: 48)
-                            .background(.clear)
                             .clipShape(RoundedRectangle(cornerRadius: 6))
                             .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color(nsColor: .separatorColor), lineWidth: 0.5))
                             .overlay(alignment: .bottomTrailing) {
@@ -632,14 +631,7 @@ struct GroupDetailView: View {
     }
 
     private func colorFromName(_ name: String) -> Color {
-        let colors: [String: Color] = [
-            "黑色": .black, "白色": .white, "灰色": .gray, "深空灰": Color(white: 0.3),
-            "红色": .red, "蓝色": .blue, "深蓝": Color(red: 0, green: 0, blue: 0.5),
-            "绿色": .green, "黄色": .yellow, "橙色": .orange, "紫色": .purple,
-            "粉色": .pink, "棕色": .brown, "透明": .clear, "夜光绿": Color(red: 0.1, green: 0.8, blue: 0.3),
-            "丝绸银": Color(white: 0.75), "丝绸金": Color(red: 0.85, green: 0.7, blue: 0.3)
-        ]
-        return colors[name] ?? Color(white: 0.7)
+        Filament.colorValue(for: name)
     }
 
     /// 过去7天每日消耗数据（按品牌+材质过滤）
@@ -714,6 +706,29 @@ struct StatCard: View {
         .frame(maxWidth: .infinity)
         .background(.clear)
         .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+}
+
+struct BrandTextLogo: View {
+    let brand: String
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.white)
+            Text(shortBrand)
+                .font(.system(size: shortBrand.count > 4 ? 10 : 12, weight: .bold))
+                .foregroundStyle(Color.black)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.65)
+                .padding(4)
+        }
+    }
+
+    private var shortBrand: String {
+        let trimmed = brand.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "LOGO" : trimmed
     }
 }
 
@@ -816,6 +831,7 @@ struct FilamentMiniCard: View {
             Button("删除", role: .destructive) {
                 modelContext.delete(filament)
                 try? modelContext.save()
+                NotificationCenter.default.post(name: filamentDataChanged, object: nil)
             }
         } message: {
             Text("确定删除「\(filament.brand) \(filament.material) \(filament.color)」(¥\(String(format: "%.0f", filament.price)))？")
@@ -905,7 +921,7 @@ struct FilamentMiniCard: View {
                             saveConsumption()
                         }
                         .keyboardShortcut(.defaultAction)
-                        .disabled(Int(consumeWeight) == nil || (Int(consumeWeight) ?? 0) <= 0)
+                        .disabled(parsedGramInput(consumeWeight) == nil)
                         .buttonStyle(.borderedProminent)
                     }
                 }
@@ -951,7 +967,7 @@ struct FilamentMiniCard: View {
                 guard let match = matches?.first, let range = Range(match.range(at: 1), in: text),
                       let grams = Double(text[range]) else { return }
 
-                let used = min(Int(grams), self.filament.remainingWeight)
+                let used = min(max(1, Int(grams.rounded())), self.filament.remainingWeight)
                 guard used > 0 else { return }
 
                 DispatchQueue.main.async {
@@ -963,7 +979,7 @@ struct FilamentMiniCard: View {
     }
 
     private func saveConsumption() {
-        let used = min(Int(consumeWeight) ?? 0, filament.remainingWeight)
+        let used = min(parsedGramInput(consumeWeight) ?? 0, filament.remainingWeight)
         guard used > 0 else { return }
 
         filament.remainingWeight -= used
@@ -1035,8 +1051,7 @@ struct FilamentMiniCard: View {
     }
 
     private func filamentColor(_ name: String) -> Color {
-        let colors: [String: Color] = ["黑色": .black, "白色": .white, "灰色": .gray, "深空灰": Color(white: 0.3), "红色": .red, "蓝色": .blue, "深蓝": Color(red: 0, green: 0, blue: 0.5), "绿色": .green, "黄色": .yellow, "橙色": .orange, "紫色": .purple, "粉色": .pink, "棕色": .brown, "透明": .clear, "夜光绿": Color(red: 0.1, green: 0.8, blue: 0.3), "丝绸银": Color(white: 0.75), "丝绸金": Color(red: 0.85, green: 0.7, blue: 0.3)]
-        return colors[name] ?? Color(white: 0.7)
+        Filament.colorValue(for: name)
     }
 }
 
@@ -1113,6 +1128,7 @@ struct EditSingleFilamentView: View {
         let b = useCustomBrand ? customBrand : brand
         let m = useCustomMaterial ? customMaterial : material
         let c = useCustomColor ? customColor : color
+        Filament.rememberPreset(brand: b, material: m, color: c)
         filament.brand = b; filament.material = m; filament.color = c
         filament.weight = weight; filament.price = p; filament.alertThreshold = alertThreshold
         if filament.status == FilamentStatus.usedUp.rawValue {
@@ -1257,8 +1273,7 @@ struct ColorSwatch: View {
     }
 
     private func colorFromPalette(_ name: String) -> Color {
-        let colors: [String: Color] = ["黑色": .black, "白色": Color(white: 0.95), "灰色": .gray, "深空灰": Color(white: 0.3), "红色": .red, "蓝色": .blue, "深蓝": Color(red: 0, green: 0, blue: 0.5), "绿色": .green, "黄色": .yellow, "橙色": .orange, "紫色": .purple, "粉色": .pink, "棕色": .brown, "透明": Color(white: 0.7).opacity(0.3), "夜光绿": Color(red: 0, green: 0.9, blue: 0.3), "丝绸银": Color(white: 0.7), "丝绸金": Color(red: 0.85, green: 0.65, blue: 0.2), "哑光黑": Color(white: 0.15), "木质": Color(red: 0.6, green: 0.4, blue: 0.2)]
-        return colors[name] ?? Color(white: 0.6)
+        Filament.colorValue(for: name)
     }
 }
 
@@ -1297,8 +1312,7 @@ struct CircleSwatch: View {
     }
 
     private func colorFromPalette(_ name: String) -> Color {
-        let colors: [String: Color] = ["黑色": .black, "白色": Color(white: 0.95), "灰色": .gray, "深空灰": Color(white: 0.3), "红色": .red, "蓝色": .blue, "深蓝": Color(red: 0, green: 0, blue: 0.5), "绿色": .green, "黄色": .yellow, "橙色": .orange, "紫色": .purple, "粉色": .pink, "棕色": .brown, "透明": Color(white: 0.7).opacity(0.3), "夜光绿": Color(red: 0, green: 0.9, blue: 0.3), "丝绸银": Color(white: 0.7), "丝绸金": Color(red: 0.85, green: 0.65, blue: 0.2), "哑光黑": Color(white: 0.15), "木质": Color(red: 0.6, green: 0.4, blue: 0.2)]
-        return colors[name] ?? Color(white: 0.6)
+        Filament.colorValue(for: name)
     }
 }
 
@@ -1399,14 +1413,26 @@ struct DeviceDetailView: View {
         .background(.clear)
         .sheet(isPresented: $showZoom) {
             VStack(spacing: 12) {
+                HStack {
+                    Text("\(device.brand) \(device.model)")
+                        .font(.headline)
+                    Spacer()
+                    Button { showZoom = false } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title3)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .keyboardShortcut(.cancelAction)
+                }
                 if let data = device.imageData, let img = NSImage(data: data) {
                     Image(nsImage: img).resizable().aspectRatio(contentMode: .fit)
-                        .frame(maxWidth: 300, maxHeight: 300)
+                        .frame(maxWidth: 720, maxHeight: 560)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
-                Text("\(device.brand) \(device.model)").font(.headline)
-                Button("关闭") { showZoom = false }.keyboardShortcut(.cancelAction).buttonStyle(.bordered)
-            }.padding(20).frame(width: 360, height: 400)
+            }
+            .padding(20)
+            .frame(width: 780, height: 640)
         }
     }
 

@@ -13,6 +13,7 @@ struct StatisticsView: View {
     private var allDevices: [Device] { (try? modelContext.fetch(FetchDescriptor<Device>())) ?? [] }
 
     @State private var consumptionDim = "品牌"
+    @State private var inventoryMixDim = "品牌"
     @State private var expandedProductID: String? = nil
 
     private var totalSpending: Double { allFilaments.reduce(0) { $0 + $1.price } + allDevices.reduce(0) { $0 + $1.purchasePrice } }
@@ -37,6 +38,7 @@ struct StatisticsView: View {
             VStack(spacing: 24) {
                 overviewSection; Divider()
                 spendingSection; Divider()
+                inventoryMixSection; Divider()
                 salesSection; Divider()
                 consumptionSection
             }.padding(20).frame(maxWidth: .infinity)
@@ -122,6 +124,63 @@ struct StatisticsView: View {
                         Divider().padding(.leading, 8)
                     }
                 }.padding(8).background(Color(nsColor: .controlBackgroundColor).opacity(0.5)).clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+        }
+    }
+
+    // MARK: - 耗材购入占比
+    private var inventoryMixSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "chart.pie.fill").foregroundStyle(.teal)
+                Text("耗材购入占比").font(.headline)
+                Spacer()
+                Picker("", selection: $inventoryMixDim) {
+                    Text("按品牌").tag("品牌")
+                    Text("按材质").tag("材质")
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 180)
+            }
+
+            let data = inventoryMixData
+            if data.isEmpty {
+                Text("暂无耗材购入数据").foregroundStyle(.secondary).frame(maxWidth: .infinity, minHeight: 80)
+            } else {
+                HStack(alignment: .center, spacing: 32) {
+                    Spacer()
+                    Chart(data, id: \.key) { item in
+                        let total = data.reduce(0) { $0 + $1.count }
+                        let pct = Double(item.count) / Double(max(total, 1)) * 100
+                        SectorMark(angle: .value("卷数", item.count), innerRadius: .ratio(0.5))
+                            .foregroundStyle(by: .value("类别", item.key))
+                            .annotation(position: .overlay) {
+                                if pct > 8 {
+                                    Text("\(String(format: "%.0f", pct))%")
+                                        .font(.caption)
+                                        .fontWeight(.bold)
+                                        .foregroundStyle(.white)
+                                }
+                            }
+                    }
+                    .chartLegend(.hidden)
+                    .frame(width: 150, height: 150)
+
+                    VStack(spacing: 6) {
+                        let palette: [Color] = [.teal, .blue, .green, .orange, .purple, .red, .cyan, .pink]
+                        let total = data.reduce(0) { $0 + $1.count }
+                        ForEach(Array(data.prefix(6).enumerated()), id: \.offset) { i, item in
+                            let pct = Double(item.count) / Double(max(total, 1)) * 100
+                            HStack(spacing: 0) {
+                                Circle().fill(palette[i % palette.count]).frame(width: 10, height: 10).padding(.trailing, 6)
+                                Text(item.key).font(.subheadline).lineLimit(1).frame(width: 110, alignment: .leading)
+                                Text("\(item.count)卷").font(.subheadline).fontWeight(.medium).frame(width: 44, alignment: .center)
+                                Text("\(String(format: "%.1f", pct))%").font(.subheadline).foregroundStyle(.secondary).frame(width: 52, alignment: .trailing)
+                            }.padding(.vertical, 6)
+                        }
+                    }
+                    Spacer()
+                }
             }
         }
     }
@@ -290,6 +349,15 @@ struct StatisticsView: View {
             default: key = r.filament?.brand ?? "未知"
             }
             dict[key, default: 0] += r.weightUsed
+        }
+        return dict.sorted { $0.value > $1.value }.map { ($0.key, $0.value) }
+    }
+
+    private var inventoryMixData: [(key: String, count: Int)] {
+        var dict: [String: Int] = [:]
+        for filament in allFilaments {
+            let key = inventoryMixDim == "材质" ? filament.material : filament.brand
+            dict[key.isEmpty ? "未知" : key, default: 0] += 1
         }
         return dict.sorted { $0.value > $1.value }.map { ($0.key, $0.value) }
     }

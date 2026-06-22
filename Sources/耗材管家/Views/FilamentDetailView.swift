@@ -26,7 +26,7 @@ struct FilamentDetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TrafficTitlebar(title: "详细信息") {
+            TrafficTitlebar(title: "详细信息", rightContent: {
                 HStack(spacing: 6) {
                     Button("消耗") { showConsumptionSheet = true }
                         .buttonStyle(.bordered).controlSize(.small)
@@ -37,7 +37,7 @@ struct FilamentDetailView: View {
                     Button("删除") { showDeleteAlert = true }
                         .buttonStyle(.bordered).controlSize(.small).foregroundStyle(.red)
                 }
-            }
+            })
             Divider()
             ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -67,11 +67,9 @@ struct FilamentDetailView: View {
                         Text(filament.color)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
-                        if let days = filament.estimatedDaysUntilEmpty {
-                            Text("购买于 \(filament.purchaseDate.formatted(.dateTime.year().month().day()))")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                        }
+                        Text("购入于 \(filament.purchaseDate.formatted(.dateTime.year().month().day()))")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
                     }
                     Spacer()
                 }
@@ -232,7 +230,7 @@ struct FilamentDetailView: View {
                 .keyboardShortcut(.cancelAction)
 
                 Button("确认消耗") {
-                    if let weight = Int(consumeWeight), weight > 0, weight <= filament.remainingWeight {
+                    if let weight = parsedGramInput(consumeWeight), weight <= filament.remainingWeight {
                         store?.recordConsumption(filament: filament, weightUsed: weight, modelName: modelName)
                     }
                     showConsumptionSheet = false
@@ -240,7 +238,7 @@ struct FilamentDetailView: View {
                     modelName = ""
                 }
                 .keyboardShortcut(.defaultAction)
-                .disabled(Int(consumeWeight) == nil || (Int(consumeWeight) ?? 0) <= 0)
+                .disabled(parsedGramInput(consumeWeight) == nil)
             }
         }
         .padding(24)
@@ -338,6 +336,7 @@ struct FilamentDetailView: View {
 
     private func saveEdit() {
         guard let price = Double(editPrice), price > 0 else { return }
+        Filament.rememberPreset(brand: editBrand, material: editMaterial, color: editColor)
         filament.brand = editBrand
         filament.material = editMaterial
         filament.color = editColor
@@ -349,6 +348,7 @@ struct FilamentDetailView: View {
             filament.status = FilamentStatus.active.rawValue
         }
         try? modelContext.save()
+        NotificationCenter.default.post(name: filamentDataChanged, object: nil)
     }
 
     // MARK: - 辅助
@@ -358,15 +358,7 @@ struct FilamentDetailView: View {
     }
 
     private func colorFromName(_ name: String) -> Color {
-        let colors: [String: Color] = [
-            "黑色": .black, "白色": Color(white: 0.9), "灰色": .gray, "深空灰": Color(white: 0.3),
-            "红色": .red, "蓝色": .blue, "深蓝": Color(red: 0, green: 0, blue: 0.5),
-            "绿色": .green, "黄色": .yellow, "橙色": .orange, "紫色": .purple,
-            "粉色": .pink, "棕色": .brown, "透明": Color(white: 0.85).opacity(0.3), "夜光绿": Color(red: 0, green: 0.9, blue: 0.3),
-            "丝绸银": Color(white: 0.7), "丝绸金": Color(red: 0.85, green: 0.65, blue: 0.2),
-            "哑光黑": Color(white: 0.15), "木质": Color(red: 0.6, green: 0.4, blue: 0.2)
-        ]
-        return colors[name] ?? Color(white: 0.6)
+        Filament.colorValue(for: name)
     }
 }
 

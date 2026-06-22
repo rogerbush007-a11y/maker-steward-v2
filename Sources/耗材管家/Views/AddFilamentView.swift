@@ -378,6 +378,7 @@ extension AddFilamentView {
     private func saveFilament() -> String? {
         guard let totalPrice = Double(price), totalPrice > 0 else { return "请输入有效的总价" }
         guard !resolvedBrand.isEmpty, !resolvedMaterial.isEmpty, !resolvedColor.isEmpty else { return "请填写完整信息" }
+        Filament.rememberPreset(brand: resolvedBrand, material: resolvedMaterial, color: resolvedColor)
         let unitPrice = totalPrice / Double(quantity)
         for _ in 0..<quantity {
             let f = Filament(brand: resolvedBrand, material: resolvedMaterial, color: resolvedColor, weight: weight, price: unitPrice, alertThreshold: alertThreshold, purchaseDate: purchaseDate, imageData: brandImageData)
@@ -426,6 +427,7 @@ extension AddFilamentView {
             let brand = item.useCustomBrand ? item.customBrand : item.brand
             let material = item.useCustomMaterial ? item.customMaterial : item.material
             let color = item.useCustomColor ? item.customColor : item.color
+            Filament.rememberPreset(brand: brand, material: material, color: color)
             for _ in 0..<item.quantity {
                 let f = Filament(brand: brand.isEmpty ? "未知" : brand, material: material.isEmpty ? "PLA+" : material, color: color.isEmpty ? "其它" : color, weight: 1000, price: price, purchaseDate: .now)
                 modelContext.insert(f)
