@@ -1,0 +1,15 @@
+.build/
+.swiftpm/
+.xcodebuild/
+DerivedData/
+*.o
+*.d
+*.dia
+*.swiftdeps
+*.bak
+*.app/
+*.xcuserstate
+.DS_Store
+.claude/settings.local.json
+ocrtool/ocrtool
+第1步_截屏.png
