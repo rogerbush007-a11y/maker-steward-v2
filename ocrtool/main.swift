@@ -35,19 +35,28 @@ let request = VNRecognizeTextRequest { request, error in
         semaphore.signal()
         return
     }
-    let texts = observations.compactMap { $0.topCandidates(1).first?.string }
+    let sorted = observations.sorted { lhs, rhs in
+        let ly = lhs.boundingBox.midY
+        let ry = rhs.boundingBox.midY
+        if abs(ly - ry) > 0.015 {
+            return ly > ry
+        }
+        return lhs.boundingBox.minX < rhs.boundingBox.minX
+    }
+    let texts = sorted.compactMap { $0.topCandidates(3).first?.string }
     resultText = texts.joined(separator: "\n")
     semaphore.signal()
 }
 
-request.recognitionLevel = .fast
-request.recognitionLanguages = ["zh-Hans", "en-US"]
+request.recognitionLevel = .accurate
+request.recognitionLanguages = ["zh-Hans", "zh-Hant", "en-US"]
 request.usesLanguageCorrection = true
+request.minimumTextHeight = 0.006
 
 // 尝试多种初始化方式
 func tryOCR() -> Bool {
     // 方式1: Data
-    if let handler = try? VNImageRequestHandler(data: imageData, options: [:]),
+    if let handler = Optional(VNImageRequestHandler(data: imageData, options: [:])),
        let _ = try? handler.perform([request]) {
         semaphore.wait()
         return true
@@ -57,7 +66,7 @@ func tryOCR() -> Bool {
     if let cgImage = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) {
         // 缩小图片到合理大小
         var processImage = nsImage
-        let maxDim: CGFloat = 1280
+        let maxDim: CGFloat = 2600
         if nsImage.size.width > maxDim || nsImage.size.height > maxDim {
             let scale = min(maxDim / nsImage.size.width, maxDim / nsImage.size.height)
             let newSize = NSSize(width: nsImage.size.width * scale, height: nsImage.size.height * scale)

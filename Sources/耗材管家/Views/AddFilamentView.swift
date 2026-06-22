@@ -512,18 +512,29 @@ extension AddFilamentView {
 
     private func parseOrderText(_ text: String) {
         let lines = text.components(separatedBy: .newlines).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-        let knownBrands = ["Bambu Lab", "Bambu", "eSun", "Polymaker", "Sunlu", "Elegoo", "Anycubic", "Creality", "天瑞", "闪铸", "三绿", "金丝"]
-        let knownMaterials = ["PLA+", "PLA", "PETG", "TPU", "ABS", "ASA", "PA", "PC", "PVA", "HIPS", "尼龙", "碳纤"]
+        let knownBrands = Filament.presetBrands + ["Bambu", "TINMORRY", "Flashforge", "拓竹", "易生", "天瑞", "闪铸", "三绿", "金丝"]
+        let knownMaterials = Filament.presetMaterials + ["PLA+", "PLA", "PETG", "TPU", "ABS", "ASA", "PA", "PC", "PVA", "HIPS", "尼龙", "碳纤"]
         var items: [RecognizedItem] = []
-        for line in lines {
-            let matchedBrand = knownBrands.first { line.localizedCaseInsensitiveContains($0) }
-            let matchedMaterial = knownMaterials.first { line.localizedCaseInsensitiveContains($0) }
+        var seenKeys = Set<String>()
+        for index in lines.indices {
+            let context = nearbyText(lines, index: index)
+            let matchedBrand = bestMatch(in: context, candidates: knownBrands)
+            let matchedMaterial = bestMatch(in: context, candidates: knownMaterials)
             guard matchedBrand != nil || matchedMaterial != nil ||
-                  line.localizedCaseInsensitiveContains("耗材") || line.localizedCaseInsensitiveContains("打印") || line.localizedCaseInsensitiveContains("线材") else { continue }
-            let prices = extractPrices(from: line)
-            let quantity = extractQuantity(from: line)
-            items.append(RecognizedItem(brand: matchedBrand ?? "eSun", material: matchedMaterial ?? "PLA+", color: "丝绸银", quantity: quantity, unitPrice: prices.first.map { String(format: "%.0f", $0) } ?? ""))
-            if let mc = Filament.presetColors.first(where: { line.localizedCaseInsensitiveContains($0) }) { items[items.count - 1].color = mc }
+                  context.localizedCaseInsensitiveContains("耗材") ||
+                  context.localizedCaseInsensitiveContains("打印") ||
+                  context.localizedCaseInsensitiveContains("线材") ||
+                  context.localizedCaseInsensitiveContains("filament") else { continue }
+            let prices = extractPrices(from: context).filter { $0 >= 5 && $0 <= 2000 }
+            let quantity = extractQuantity(from: context)
+            let color = bestMatch(in: context, candidates: Filament.presetColors) ?? "丝绸银"
+            let brandValue = matchedBrand ?? "eSun"
+            let materialValue = matchedMaterial ?? "PLA+"
+            let priceValue = prices.last.map { String(format: "%.2f", $0) } ?? ""
+            let key = "\(brandValue)|\(materialValue)|\(color)|\(priceValue)|\(quantity)"
+            guard !seenKeys.contains(key) else { continue }
+            seenKeys.insert(key)
+            items.append(RecognizedItem(brand: brandValue, material: materialValue, color: color, quantity: quantity, unitPrice: priceValue))
         }
         if items.isEmpty { items.append(RecognizedItem(brand: "eSun", material: "PLA+", color: "丝绸银", quantity: 1, unitPrice: "")) }
         // 提取总价
@@ -536,10 +547,17 @@ extension AddFilamentView {
     }
 
     private func extractPrices(from line: String) -> [Double] {
-        let p = try? NSRegularExpression(pattern: "[¥￥]?\\d+[\\.]?\\d*")
+        let p = try? NSRegularExpression(pattern: "(?:¥|￥|CNY|RMB)?\\s*\\d+(?:[\\.,]\\d{1,2})?")
         return (p?.matches(in: line, range: NSRange(line.startIndex..., in: line)) ?? []).compactMap { m -> Double? in
             guard let r = Range(m.range, in: line) else { return nil }
-            return Double(line[r].replacingOccurrences(of: "¥", with: "").replacingOccurrences(of: "￥", with: ""))
+            let cleaned = line[r]
+                .replacingOccurrences(of: "¥", with: "")
+                .replacingOccurrences(of: "￥", with: "")
+                .replacingOccurrences(of: "CNY", with: "", options: .caseInsensitive)
+                .replacingOccurrences(of: "RMB", with: "", options: .caseInsensitive)
+                .replacingOccurrences(of: ",", with: ".")
+                .trimmingCharacters(in: .whitespaces)
+            return Double(cleaned)
         }
     }
 
@@ -547,5 +565,18 @@ extension AddFilamentView {
         let p = try? NSRegularExpression(pattern: "\\d+[枚卷个件]")
         guard let m = p?.matches(in: line, range: NSRange(line.startIndex..., in: line)).first, let r = Range(m.range, in: line) else { return 1 }
         return Int(line[r].trimmingCharacters(in: CharacterSet.decimalDigits.inverted)) ?? 1
+    }
+
+    private func nearbyText(_ lines: [String], index: Int) -> String {
+        let start = max(lines.startIndex, index - 1)
+        let end = min(lines.index(before: lines.endIndex), index + 2)
+        return lines[start...end].joined(separator: " ")
+    }
+
+    private func bestMatch(in text: String, candidates: [String]) -> String? {
+        candidates
+            .filter { !$0.isEmpty && text.localizedCaseInsensitiveContains($0) }
+            .sorted { $0.count > $1.count }
+            .first
     }
 }
