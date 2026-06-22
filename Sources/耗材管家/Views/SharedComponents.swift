@@ -19,6 +19,7 @@ struct PickerGroup: View {
     @Binding var useCustom: Bool
     @Binding var customText: String
     let options: [String]
+    @State private var showColorPalette = false
 
     var body: some View {
         HStack {
@@ -43,22 +44,51 @@ struct PickerGroup: View {
     }
 
     private func colorMenu(onSelect: @escaping (String) -> Void) -> some View {
-        Menu {
-            ForEach(Filament.presetColors, id: \.self) { colorName in
-                Button {
-                    onSelect(colorName)
-                } label: {
-                    HStack {
-                        ColorSwatch(colorName, size: 12)
-                        Text(colorName)
-                    }
-                }
-            }
+        Button {
+            showColorPalette.toggle()
         } label: {
             Image(systemName: "paintpalette")
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
+        .buttonStyle(.borderless)
         .help("色盘")
+        .popover(isPresented: $showColorPalette, arrowEdge: .bottom) {
+            ColorPaletteGrid { colorName in
+                onSelect(colorName)
+                showColorPalette = false
+            }
+        }
+    }
+}
+
+struct ColorPaletteGrid: View {
+    let onSelect: (String) -> Void
+
+    private let columns = Array(repeating: GridItem(.fixed(34), spacing: 8), count: 6)
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("选择颜色")
+                .font(.headline)
+            LazyVGrid(columns: columns, spacing: 10) {
+                ForEach(Filament.presetColors, id: \.self) { colorName in
+                    Button {
+                        onSelect(colorName)
+                    } label: {
+                        VStack(spacing: 4) {
+                            ColorSwatch(colorName, size: 28)
+                            Text(colorName)
+                                .font(.caption2)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
+                                .frame(width: 34)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .help(colorName)
+                }
+            }
+        }
+        .padding(12)
+        .frame(width: 270)
     }
 }
