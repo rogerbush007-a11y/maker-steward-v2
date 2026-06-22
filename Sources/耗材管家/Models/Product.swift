@@ -78,7 +78,7 @@ final class SaleRecord {
     var packagingCost: Double
     /// 平台抽成比例（如 0.05 表示 5%）
     var platformCommission: Double
-    /// 买家
+    /// 售出平台（历史版本字段名为 buyer）
     var buyer: String
     /// 售出时间
     var createdAt: Date

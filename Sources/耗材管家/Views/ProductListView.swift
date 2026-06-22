@@ -308,8 +308,8 @@ struct ProductDetailView: View {
                     Text("元").foregroundStyle(.secondary).font(.caption)
                 }
                 HStack {
-                    Text("买家").frame(width: 70, alignment: .leading)
-                    TextField("选填", text: $saleBuyer).textFieldStyle(.roundedBorder)
+                    Text("平台").frame(width: 70, alignment: .leading)
+                    TextField("如 小红书 / 闲鱼 / 淘宝", text: $saleBuyer).textFieldStyle(.roundedBorder)
                 }
             }
 

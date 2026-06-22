@@ -240,6 +240,44 @@ struct StatisticsView: View {
                     }.frame(width: 360)
                     Spacer()
                 }
+
+                Divider().padding(.vertical, 4)
+
+                platformSalesTable
+            }
+        }
+    }
+
+    private var platformSalesTable: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("售出平台统计").font(.subheadline).fontWeight(.semibold)
+            let rows = platformSalesData
+            if rows.isEmpty {
+                Text("暂无平台销售数据").font(.caption).foregroundStyle(.secondary)
+            } else {
+                VStack(spacing: 0) {
+                    HStack(spacing: 0) {
+                        Text("平台").font(.caption).fontWeight(.semibold).frame(maxWidth: .infinity, alignment: .leading)
+                        Text("销量").font(.caption).fontWeight(.semibold).frame(width: 60, alignment: .trailing)
+                        Text("销售额").font(.caption).fontWeight(.semibold).frame(width: 80, alignment: .trailing)
+                        Text("订单").font(.caption).fontWeight(.semibold).frame(width: 60, alignment: .trailing)
+                    }
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 8)
+
+                    ForEach(rows, id: \.platform) { row in
+                        HStack(spacing: 0) {
+                            Text(row.platform).font(.caption).frame(maxWidth: .infinity, alignment: .leading)
+                            Text("\(row.quantity)").font(.caption).frame(width: 60, alignment: .trailing)
+                            Text("¥\(String(format: "%.0f", row.revenue))").font(.caption).frame(width: 80, alignment: .trailing)
+                            Text("\(row.orders)").font(.caption).foregroundStyle(.secondary).frame(width: 60, alignment: .trailing)
+                        }
+                        .padding(.vertical, 5)
+                        .padding(.horizontal, 8)
+                        Divider().padding(.leading, 8)
+                    }
+                }
+                .glassPanel(cornerRadius: 8, opacity: 0.45)
             }
         }
     }
@@ -360,6 +398,25 @@ struct StatisticsView: View {
             dict[key.isEmpty ? "未知" : key, default: 0] += 1
         }
         return dict.sorted { $0.value > $1.value }.map { ($0.key, $0.value) }
+    }
+
+    private var platformSalesData: [(platform: String, quantity: Int, revenue: Double, orders: Int)] {
+        var dict: [String: (quantity: Int, revenue: Double, orders: Int)] = [:]
+        for sale in allProducts.flatMap(\.sales) {
+            let platform = sale.buyer.trimmingCharacters(in: .whitespacesAndNewlines)
+            let key = platform.isEmpty ? "未填写" : platform
+            var current = dict[key] ?? (quantity: 0, revenue: 0, orders: 0)
+            current.quantity += sale.quantity
+            current.revenue += sale.revenue
+            current.orders += 1
+            dict[key] = current
+        }
+        return dict
+            .map { (platform: $0.key, quantity: $0.value.quantity, revenue: $0.value.revenue, orders: $0.value.orders) }
+            .sorted {
+                if $0.revenue != $1.revenue { return $0.revenue > $1.revenue }
+                return $0.quantity > $1.quantity
+            }
     }
 
     private func formatK(_ value: Double) -> String {
