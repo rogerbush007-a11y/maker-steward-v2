@@ -1340,6 +1340,12 @@ struct DeviceDetailView: View {
                             .font(.title2).fontWeight(.semibold)
                         Text("购入于 \(device.purchaseDate.formatted(.dateTime.year().month().day()))")
                             .font(.subheadline).foregroundStyle(.secondary)
+                        Text(device.notes.isEmpty ? "暂无设备简介，可在编辑里补充备注" : device.notes)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(4)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, 6)
                         Spacer()
                         HStack(spacing: 8) {
                             deviceStatusBadge
@@ -1397,15 +1403,6 @@ struct DeviceDetailView: View {
                             }
                         }
                         .padding(4)
-                    }
-                }
-
-                // 备注
-                if !device.notes.isEmpty {
-                    Divider()
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("备注").font(.headline)
-                        Text(device.notes).font(.body).foregroundStyle(.secondary)
                     }
                 }
 

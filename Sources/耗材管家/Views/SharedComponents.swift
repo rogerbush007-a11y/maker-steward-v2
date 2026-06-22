@@ -27,7 +27,7 @@ struct PickerGroup: View {
             if useCustom {
                 TextField("输入\(label)", text: $customText).textFieldStyle(.roundedBorder)
                 if label == "颜色" {
-                    colorMenu { customText = $0 }
+                    colorMenu(customName: customText) { customText = $0 }
                 }
                 Button("预设") { useCustom = false; selection = "" }.controlSize(.small).font(.caption)
             } else {
@@ -36,14 +36,14 @@ struct PickerGroup: View {
                     ForEach(options, id: \.self) { opt in Text(opt).tag(opt) }
                 }.labelsHidden()
                 if label == "颜色" {
-                    colorMenu { selection = $0 }
+                    colorMenu(customName: "") { selection = $0 }
                 }
                 Button("手动") { useCustom = true }.controlSize(.small).font(.caption)
             }
         }
     }
 
-    private func colorMenu(onSelect: @escaping (String) -> Void) -> some View {
+    private func colorMenu(customName: String, onSelect: @escaping (String) -> Void) -> some View {
         Button {
             showColorPalette.toggle()
         } label: {
@@ -52,8 +52,12 @@ struct PickerGroup: View {
         .buttonStyle(.borderless)
         .help("色盘")
         .popover(isPresented: $showColorPalette, arrowEdge: .bottom) {
-            ColorPaletteGrid { colorName in
+            ColorPaletteGrid(customName: customName) { colorName in
                 onSelect(colorName)
+                showColorPalette = false
+            } onCustomColor: { name, color in
+                Filament.rememberCustomColor(name: name, color: color)
+                onSelect(name)
                 showColorPalette = false
             }
         }
@@ -61,10 +65,15 @@ struct PickerGroup: View {
 }
 
 struct ColorPaletteGrid: View {
+    let customName: String
     let onSelect: (String) -> Void
+    let onCustomColor: (String, Color) -> Void
     @State private var customColor: Color = .orange
 
     private let columns = Array(repeating: GridItem(.fixed(34), spacing: 8), count: 6)
+    private var trimmedCustomName: String {
+        customName.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -79,10 +88,20 @@ struct ColorPaletteGrid: View {
                     .frame(width: 34, height: 28)
                     .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color(nsColor: .separatorColor), lineWidth: 0.5))
                 Button("使用自定义颜色") {
-                    onSelect(Filament.hexString(for: customColor))
+                    onCustomColor(trimmedCustomName, customColor)
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
+                .disabled(trimmedCustomName.isEmpty)
+            }
+            if trimmedCustomName.isEmpty {
+                Text("先输入颜色名称，再点选颜色")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("将颜色保存为「\(trimmedCustomName)」")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             Divider()
             LazyVGrid(columns: columns, spacing: 10) {

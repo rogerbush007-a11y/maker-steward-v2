@@ -179,6 +179,16 @@ extension Filament {
         mergedPresets(defaultPresetColors, key: "filament_custom_colors")
     }
 
+    static func rememberCustomColor(name: String, color: Color) {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return }
+        appendPreset(trimmedName, defaults: defaultPresetColors, key: "filament_custom_colors")
+
+        var colorValues = UserDefaults.standard.dictionary(forKey: "filament_custom_color_values") as? [String: String] ?? [:]
+        colorValues[trimmedName] = hexString(for: color)
+        UserDefaults.standard.set(colorValues, forKey: "filament_custom_color_values")
+    }
+
     static func rememberPreset(brand: String? = nil, material: String? = nil, color: String? = nil) {
         appendPreset(brand, defaults: defaultPresetBrands, key: "filament_custom_brands", canonicalizer: canonicalBrandName)
         appendPreset(material, defaults: defaultPresetMaterials, key: "filament_custom_materials")
@@ -187,6 +197,10 @@ extension Filament {
 
     static func colorValue(for name: String) -> Color {
         if let color = colorFromHex(name) {
+            return color
+        }
+        if let customHex = (UserDefaults.standard.dictionary(forKey: "filament_custom_color_values") as? [String: String])?[name],
+           let color = colorFromHex(customHex) {
             return color
         }
         let colors: [String: Color] = [
