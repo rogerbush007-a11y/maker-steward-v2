@@ -35,6 +35,35 @@ struct FilamentGroup: Identifiable, Hashable {
         filaments.reduce(0.0) { $0 + $1.monthlyConsumptionRate }
     }
 
+    var detailSortedFilaments: [Filament] {
+        filaments.sorted { lhs, rhs in
+            let lhsLatestConsumption = lhs.consumptions.map(\.createdAt).max()
+            let rhsLatestConsumption = rhs.consumptions.map(\.createdAt).max()
+
+            if let lhsLatestConsumption, let rhsLatestConsumption {
+                if lhsLatestConsumption != rhsLatestConsumption {
+                    return lhsLatestConsumption > rhsLatestConsumption
+                }
+            } else if lhsLatestConsumption != nil {
+                return true
+            } else if rhsLatestConsumption != nil {
+                return false
+            }
+
+            let lhsUnopened = lhs.remainingWeight == lhs.weight
+            let rhsUnopened = rhs.remainingWeight == rhs.weight
+            if lhsUnopened != rhsUnopened {
+                return lhsUnopened && !rhsUnopened
+            }
+
+            if lhs.purchaseDate != rhs.purchaseDate {
+                return lhs.purchaseDate > rhs.purchaseDate
+            }
+
+            return lhs.createdAt > rhs.createdAt
+        }
+    }
+
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
@@ -608,7 +637,7 @@ struct GroupDetailView: View {
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
-                ForEach(group.filaments.sorted(by: { $0.remainingWeight > $1.remainingWeight })) { f in
+                ForEach(group.detailSortedFilaments) { f in
                     FilamentMiniCard(filament: f, store: store)
                 }
             }
