@@ -15,6 +15,11 @@ struct StatisticsView: View {
     @State private var consumptionDim = "品牌"
     @State private var inventoryMixDim = "品牌"
     @State private var expandedProductID: String? = nil
+    private let chartPalette: [Color] = [.blue, .green, .orange, .purple, .red, .cyan, .yellow, .pink, .teal]
+
+    private func chartColor(_ index: Int) -> Color {
+        chartPalette[index % chartPalette.count]
+    }
 
     private var totalSpending: Double { allFilaments.reduce(0) { $0 + $1.price } + allDevices.reduce(0) { $0 + $1.purchasePrice } }
     private var totalRevenue: Double { allProducts.flatMap(\.sales).reduce(0) { $0 + $1.revenue } }
@@ -163,16 +168,19 @@ struct StatisticsView: View {
                                 }
                             }
                     }
+                    .chartForegroundStyleScale(
+                        domain: data.map(\.key),
+                        range: data.indices.map { chartColor($0) }
+                    )
                     .chartLegend(.hidden)
                     .frame(width: 150, height: 150)
 
                     VStack(spacing: 6) {
-                        let palette: [Color] = [.teal, .blue, .green, .orange, .purple, .red, .cyan, .pink]
                         let total = data.reduce(0) { $0 + $1.count }
                         ForEach(Array(data.prefix(6).enumerated()), id: \.offset) { i, item in
                             let pct = Double(item.count) / Double(max(total, 1)) * 100
                             HStack(spacing: 0) {
-                                Circle().fill(palette[i % palette.count]).frame(width: 10, height: 10).padding(.trailing, 6)
+                                Circle().fill(chartColor(i)).frame(width: 10, height: 10).padding(.trailing, 6)
                                 Text(item.key).font(.subheadline).lineLimit(1).frame(width: 110, alignment: .leading)
                                 Text("\(item.count)卷").font(.subheadline).fontWeight(.medium).frame(width: 44, alignment: .center)
                                 Text("\(String(format: "%.1f", pct))%").font(.subheadline).foregroundStyle(.secondary).frame(width: 52, alignment: .trailing)
@@ -195,9 +203,12 @@ struct StatisticsView: View {
                 Text("暂无产品销售数据").foregroundStyle(.secondary).frame(maxWidth: .infinity, minHeight: 80)
             } else {
                 let totalSold = products.reduce(0) { $0 + $1.sales.reduce(0) { $0 + $1.quantity } }
+                let rankedProducts = products.sorted { a, b in
+                    a.sales.reduce(0) { $0 + $1.quantity } > b.sales.reduce(0) { $0 + $1.quantity }
+                }
                 HStack(alignment: .center, spacing: 32) {
                     Spacer()
-                    Chart(products, id: \.id) { p in
+                    Chart(rankedProducts, id: \.id) { p in
                         let qty = p.sales.reduce(0) { $0 + $1.quantity }
                         SectorMark(angle: .value("销量", qty), innerRadius: .ratio(0.5))
                             .foregroundStyle(by: .value("产品", p.name))
@@ -205,16 +216,19 @@ struct StatisticsView: View {
                                 let pct = Double(qty) / Double(totalSold) * 100
                                 if pct > 8 { Text("\(String(format: "%.0f", pct))%").font(.caption).fontWeight(.bold).foregroundStyle(.white) }
                             }
-                    }.chartLegend(.hidden).frame(width: 160, height: 160)
+                    }
+                    .chartForegroundStyleScale(
+                        domain: rankedProducts.map(\.name),
+                        range: rankedProducts.indices.map { chartColor($0) }
+                    )
+                    .chartLegend(.hidden).frame(width: 160, height: 160)
 
                     VStack(spacing: 6) {
-                        let ranked = products.sorted { a, b in a.sales.reduce(0) { $0 + $1.quantity } > b.sales.reduce(0) { $0 + $1.quantity } }
-                        let palette: [Color] = [.blue, .green, .orange, .purple, .red, .cyan, .yellow, .pink]
-                        ForEach(Array(ranked.prefix(5).enumerated()), id: \.element.id) { i, p in
+                        ForEach(Array(rankedProducts.prefix(5).enumerated()), id: \.element.id) { i, p in
                             let qty = p.sales.reduce(0) { $0 + $1.quantity }
                             let pct = Double(qty) / Double(totalSold) * 100
                             HStack(spacing: 0) {
-                                Circle().fill(palette[i % palette.count]).frame(width: 10, height: 10).padding(.trailing, 6)
+                                Circle().fill(chartColor(i)).frame(width: 10, height: 10).padding(.trailing, 6)
                                 if let data = p.imageData, let img = NSImage(data: data) {
                                     Image(nsImage: img).resizable().aspectRatio(contentMode: .fill).frame(width: 20, height: 20).clipShape(RoundedRectangle(cornerRadius: 4))
                                 }
@@ -271,16 +285,19 @@ struct StatisticsView: View {
                                 }
                             }
                     }
+                    .chartForegroundStyleScale(
+                        domain: rows.map(\.platform),
+                        range: rows.indices.map { chartColor($0) }
+                    )
                     .chartLegend(.hidden)
                     .frame(width: 150, height: 150)
 
                     VStack(spacing: 6) {
-                        let palette: [Color] = [.blue, .green, .orange, .purple, .red, .cyan, .yellow, .pink]
                         let totalQty = rows.reduce(0) { $0 + $1.quantity }
                         ForEach(Array(rows.prefix(6).enumerated()), id: \.offset) { i, row in
                             let pct = Double(row.quantity) / Double(max(totalQty, 1)) * 100
                             HStack(spacing: 0) {
-                                Circle().fill(palette[i % palette.count]).frame(width: 10, height: 10).padding(.trailing, 6)
+                                Circle().fill(chartColor(i)).frame(width: 10, height: 10).padding(.trailing, 6)
                                 Text(row.platform).font(.subheadline).lineLimit(1).frame(width: 90, alignment: .leading)
                                 Text("\(row.quantity)个").font(.subheadline).fontWeight(.medium).frame(width: 44, alignment: .center)
                                 Text("\(String(format: "%.1f", pct))%").font(.subheadline).foregroundStyle(.secondary).frame(width: 52, alignment: .trailing)
@@ -394,15 +411,19 @@ struct StatisticsView: View {
                         SectorMark(angle: .value("消耗", item.total), innerRadius: .ratio(0.5))
                             .foregroundStyle(by: .value("维度", item.key))
                             .annotation(position: .overlay) { if pct > 8 { Text("\(String(format: "%.0f", pct))%").font(.callout).fontWeight(.bold).foregroundStyle(.white) } }
-                    }.chartLegend(.hidden).frame(width: 150, height: 150)
+                    }
+                    .chartForegroundStyleScale(
+                        domain: data.map(\.key),
+                        range: data.indices.map { chartColor($0) }
+                    )
+                    .chartLegend(.hidden).frame(width: 150, height: 150)
 
                     VStack(spacing: 6) {
-                        let palette: [Color] = [.blue, .green, .orange, .purple, .red, .cyan, .yellow, .pink]
                         let total = data.reduce(0) { $0 + $1.total }
                         ForEach(Array(data.prefix(5).enumerated()), id: \.offset) { i, item in
                             let pct = Double(item.total) / Double(total) * 100
                             HStack(spacing: 0) {
-                                Circle().fill(palette[i % palette.count]).frame(width: 10, height: 10).padding(.trailing, 6)
+                                Circle().fill(chartColor(i)).frame(width: 10, height: 10).padding(.trailing, 6)
                                 Text(item.key).font(.subheadline).foregroundStyle(.primary).lineLimit(1).frame(width: 100, alignment: .leading)
                                 Text("\(item.total)g").font(.subheadline).fontWeight(.medium).frame(width: 40, alignment: .center)
                                 Text("\(String(format: "%.1f", pct))%").font(.subheadline).foregroundStyle(.secondary).frame(width: 50, alignment: .trailing)

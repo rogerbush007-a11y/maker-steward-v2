@@ -69,6 +69,8 @@ struct ColorPaletteGrid: View {
     let onSelect: (String) -> Void
     let onCustomColor: (String, Color) -> Void
     @State private var customColor: Color = .orange
+    @State private var deleteCandidate: String?
+    @State private var paletteRefreshID = UUID()
 
     private let columns = Array(repeating: GridItem(.fixed(34), spacing: 8), count: 6)
     private var trimmedCustomName: String {
@@ -120,10 +122,40 @@ struct ColorPaletteGrid: View {
                     }
                     .buttonStyle(.plain)
                     .help(colorName)
+                    .contextMenu {
+                        if Filament.isCustomColor(colorName) {
+                            Button("删除自定义颜色", role: .destructive) {
+                                deleteCandidate = colorName
+                            }
+                        }
+                    }
+                    .onLongPressGesture(minimumDuration: 0.6) {
+                        if Filament.isCustomColor(colorName) {
+                            deleteCandidate = colorName
+                        }
+                    }
                 }
             }
+            .id(paletteRefreshID)
         }
         .padding(12)
         .frame(width: 300)
+        .alert("删除自定义颜色？", isPresented: Binding(
+            get: { deleteCandidate != nil },
+            set: { if !$0 { deleteCandidate = nil } }
+        )) {
+            Button("删除", role: .destructive) {
+                if let deleteCandidate {
+                    Filament.forgetCustomColor(deleteCandidate)
+                    paletteRefreshID = UUID()
+                }
+                deleteCandidate = nil
+            }
+            Button("取消", role: .cancel) {
+                deleteCandidate = nil
+            }
+        } message: {
+            Text(deleteCandidate.map { "将从预设中删除「\($0)」，已记录的耗材名称不会被改动。" } ?? "")
+        }
     }
 }

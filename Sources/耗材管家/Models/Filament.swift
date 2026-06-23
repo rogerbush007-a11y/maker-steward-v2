@@ -179,6 +179,16 @@ extension Filament {
         mergedPresets(defaultPresetColors, key: "filament_custom_colors")
     }
 
+    static func isCustomColor(_ name: String) -> Bool {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return false }
+        guard !defaultPresetColors.contains(where: { $0.caseInsensitiveCompare(trimmedName) == .orderedSame }) else {
+            return false
+        }
+        let custom = UserDefaults.standard.stringArray(forKey: "filament_custom_colors") ?? []
+        return custom.contains { $0.caseInsensitiveCompare(trimmedName) == .orderedSame }
+    }
+
     static func rememberCustomColor(name: String, color: Color) {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else { return }
@@ -186,6 +196,19 @@ extension Filament {
 
         var colorValues = UserDefaults.standard.dictionary(forKey: "filament_custom_color_values") as? [String: String] ?? [:]
         colorValues[trimmedName] = hexString(for: color)
+        UserDefaults.standard.set(colorValues, forKey: "filament_custom_color_values")
+    }
+
+    static func forgetCustomColor(_ name: String) {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard isCustomColor(trimmedName) else { return }
+
+        let custom = UserDefaults.standard.stringArray(forKey: "filament_custom_colors") ?? []
+        let filtered = custom.filter { $0.caseInsensitiveCompare(trimmedName) != .orderedSame }
+        UserDefaults.standard.set(filtered, forKey: "filament_custom_colors")
+
+        var colorValues = UserDefaults.standard.dictionary(forKey: "filament_custom_color_values") as? [String: String] ?? [:]
+        colorValues.removeValue(forKey: trimmedName)
         UserDefaults.standard.set(colorValues, forKey: "filament_custom_color_values")
     }
 
