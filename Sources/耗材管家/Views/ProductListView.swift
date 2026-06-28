@@ -59,7 +59,7 @@ struct ProductListView: View {
         }
         .background(.thinMaterial.opacity(0.24))
         .onAppear { refresh() }
-        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("filamentDataChanged"))) { _ in refresh() }
+        .onReceive(NotificationCenter.default.publisher(for: .filamentDataChanged)) { _ in refresh() }
         .sheet(isPresented: $showAddProduct) {
             AddProductView()
         }
@@ -608,7 +608,7 @@ struct EditProductView: View {
                 Button("删除", role: .destructive) {
                     modelContext.delete(product)
                     try? modelContext.save()
-                    NotificationCenter.default.post(name: Notification.Name("filamentDataChanged"), object: nil)
+                    NotificationCenter.default.post(name: .filamentDataChanged, object: nil)
                     dismiss()
                 }
                 .foregroundStyle(.red)
@@ -712,7 +712,7 @@ struct EditProductView: View {
               let jpeg = bitmap.representation(using: .jpeg, properties: [.compressionFactor: 0.85]) else { return }
         product.imageData = jpeg
         try? modelContext.save()
-        NotificationCenter.default.post(name: Notification.Name("filamentDataChanged"), object: nil)
+        NotificationCenter.default.post(name: .filamentDataChanged, object: nil)
     }
 
     private func save() {
@@ -743,7 +743,7 @@ struct EditProductView: View {
         }
 
         try? modelContext.save()
-        NotificationCenter.default.post(name: Notification.Name("filamentDataChanged"), object: nil)
+        NotificationCenter.default.post(name: .filamentDataChanged, object: nil)
     }
 }
 
@@ -1070,7 +1070,7 @@ struct AddProductView: View {
                                    imageData: imageData)
                     modelContext.insert(p)
                     try? modelContext.save()
-                    NotificationCenter.default.post(name: Notification.Name("filamentDataChanged"), object: nil)
+                    NotificationCenter.default.post(name: .filamentDataChanged, object: nil)
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction).buttonStyle(.borderedProminent)

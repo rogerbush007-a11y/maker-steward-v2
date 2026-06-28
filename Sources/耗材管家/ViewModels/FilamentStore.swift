@@ -28,13 +28,13 @@ final class FilamentStore {
         modelContext.insert(priceRecord)
         filament.priceHistory.append(priceRecord)
         try? modelContext.save()
-        NotificationCenter.default.post(name: filamentDataChanged, object: nil)
+        NotificationCenter.default.post(name: .filamentDataChanged, object: nil)
     }
 
     func deleteFilament(_ filament: Filament) {
         modelContext.delete(filament)
         try? modelContext.save()
-        NotificationCenter.default.post(name: filamentDataChanged, object: nil)
+        NotificationCenter.default.post(name: .filamentDataChanged, object: nil)
     }
 
     func recordConsumption(filament: Filament, weightUsed: Int, modelName: String = "", product: Product? = nil) {
@@ -56,7 +56,7 @@ final class FilamentStore {
             filament.status = FilamentStatus.usedUp.rawValue
         }
         try? modelContext.save()
-        NotificationCenter.default.post(name: filamentDataChanged, object: nil)
+        NotificationCenter.default.post(name: .filamentDataChanged, object: nil)
     }
 
     /// 将耗材标记为已用完（不产生消耗记录，适用于处理剩余废料）
@@ -64,7 +64,7 @@ final class FilamentStore {
         filament.remainingWeight = 0
         filament.status = FilamentStatus.usedUp.rawValue
         try? modelContext.save()
-        NotificationCenter.default.post(name: filamentDataChanged, object: nil)
+        NotificationCenter.default.post(name: .filamentDataChanged, object: nil)
     }
 
     // 入库补充
@@ -87,7 +87,7 @@ final class FilamentStore {
             filament.priceHistory.append(priceRecord)
         }
         try? modelContext.save()
-        NotificationCenter.default.post(name: filamentDataChanged, object: nil)
+        NotificationCenter.default.post(name: .filamentDataChanged, object: nil)
     }
 
     // MARK: - 统计计算

@@ -13,6 +13,7 @@
 - **基础消耗逻辑收敛到 FilamentStore**：`saveConsumption` 改为委托 `recordConsumption` 处理扣减/归零/记录创建，自身只保留产品创建逻辑；`recordConsumption` 增加 `guard actualUsed > 0` 防御式校验，避免无效调用产生 0g 假记录
 - **产品分类改为名称+规格聚合**：产品列表与销售统计按“名称 + 规格”归类，不同颜色会合并到同一产品组下展示
 - **新增产品不再计入库存**：产品页新增只创建产品档案，默认库存为 0；耗材消耗入库时只能选择已经录入的产品，并按实际消耗更新库存
+- **统一数据变更通知入口**：新增公共 `Notification.Name.filamentDataChanged`，替换分散硬编码字符串；耗材卡片删除统一走 `FilamentStore.deleteFilament`
 
 ### 清理
 - **删除死代码 `ImportView.swift`**：480 行未被引用的独立导入视图，其 OCR 解析逻辑已整合到 `AddFilamentView` 中

@@ -390,7 +390,7 @@ extension AddFilamentView {
             BrandImageStore.save(image: img, for: resolvedBrand)
         }
         try? modelContext.save()
-        NotificationCenter.default.post(name: Notification.Name("filamentDataChanged"), object: nil)
+        NotificationCenter.default.post(name: .filamentDataChanged, object: nil)
         return nil
     }
 
@@ -436,7 +436,7 @@ extension AddFilamentView {
             }
         }
         try? modelContext.save()
-        NotificationCenter.default.post(name: Notification.Name("filamentDataChanged"), object: nil)
+        NotificationCenter.default.post(name: .filamentDataChanged, object: nil)
     }
 
     private func loadImage(from providers: [NSItemProvider]) {

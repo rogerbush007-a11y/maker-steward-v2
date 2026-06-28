@@ -347,7 +347,7 @@ struct FilamentDetailView: View {
             filament.status = FilamentStatus.active.rawValue
         }
         try? modelContext.save()
-        NotificationCenter.default.post(name: filamentDataChanged, object: nil)
+        NotificationCenter.default.post(name: .filamentDataChanged, object: nil)
     }
 
     // MARK: - 辅助

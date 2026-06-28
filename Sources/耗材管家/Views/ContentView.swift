@@ -72,8 +72,6 @@ struct FilamentGroup: Identifiable, Hashable {
     }
 }
 
-let filamentDataChanged = Notification.Name("filamentDataChanged")
-
 // MARK: - 品牌图片存储器（按品牌名独立存储）
 struct BrandImageStore {
     private static func key(for brand: String) -> String { "brand_img_\(brand.lowercased())" }
@@ -203,7 +201,7 @@ struct ContentView: View {
             store = FilamentStore(modelContext: modelContext)
             refreshData()
         }
-        .onReceive(NotificationCenter.default.publisher(for: filamentDataChanged)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: .filamentDataChanged)) { _ in
             refreshData()
         }
         .onReceive(NotificationCenter.default.publisher(for: .init("deviceEditRequested"))) { _ in
@@ -712,7 +710,7 @@ struct GroupDetailView: View {
                 first.imageData = jpeg
                 try? modelContext.save()
             }
-            NotificationCenter.default.post(name: filamentDataChanged, object: nil)
+            NotificationCenter.default.post(name: .filamentDataChanged, object: nil)
         }
     }
 }
@@ -825,12 +823,12 @@ struct FilamentMiniCard: View {
                     }
                     .clipShape(RoundedRectangle(cornerRadius: 4))
                     .contentShape(Rectangle())
-                    .onTapGesture { showConsumePopover = true }
+                    .onTapGesture { showConsumptionPopover() }
 
                     Text("剩\(filament.remainingWeight)g")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
-                        .onTapGesture { showConsumePopover = true }
+                        .onTapGesture { showConsumptionPopover() }
                 }
             }
 
@@ -859,9 +857,7 @@ struct FilamentMiniCard: View {
         .alert("删除耗材", isPresented: $showDelete) {
             Button("取消", role: .cancel) { }
             Button("删除", role: .destructive) {
-                modelContext.delete(filament)
-                try? modelContext.save()
-                NotificationCenter.default.post(name: filamentDataChanged, object: nil)
+                store?.deleteFilament(filament)
             }
         } message: {
             Text("确定删除「\(filament.brand) \(filament.material) \(filament.color)」(¥\(String(format: "%.0f", filament.price)))？")
@@ -1042,7 +1038,7 @@ struct FilamentMiniCard: View {
         productItems = [ProductItem()]
     }
 
-    private func recordConsumption() {
+    private func showConsumptionPopover() {
         showConsumePopover = true
     }
 
@@ -1147,7 +1143,7 @@ struct EditSingleFilamentView: View {
             filament.status = FilamentStatus.active.rawValue
         }
         try? modelContext.save()
-        NotificationCenter.default.post(name: filamentDataChanged, object: nil)
+        NotificationCenter.default.post(name: .filamentDataChanged, object: nil)
     }
 }
 
@@ -1369,7 +1365,7 @@ struct DeviceDetailView: View {
                                         device.sellPrice = Double(tf.stringValue) ?? 0
                                         device.sellDate = .now
                                         try? modelContext.save()
-                                        NotificationCenter.default.post(name: filamentDataChanged, object: nil)
+                                        NotificationCenter.default.post(name: .filamentDataChanged, object: nil)
                                     }
                                 }
                         }
@@ -1456,14 +1452,14 @@ struct DeviceDetailView: View {
                 device.sellPrice = Double(tf.stringValue) ?? 0
                 device.sellDate = .now
                 try? modelContext.save()
-                NotificationCenter.default.post(name: filamentDataChanged, object: nil)
+                NotificationCenter.default.post(name: .filamentDataChanged, object: nil)
             }
         } else {
             device.status = "使用中"
             device.sellPrice = nil
             device.sellDate = nil
             try? modelContext.save()
-            NotificationCenter.default.post(name: filamentDataChanged, object: nil)
+            NotificationCenter.default.post(name: .filamentDataChanged, object: nil)
         }
     }
 
@@ -1555,7 +1551,7 @@ struct EditDeviceView: View {
                 Button("删除", role: .destructive) {
                     modelContext.delete(device)
                     try? modelContext.save()
-                    NotificationCenter.default.post(name: filamentDataChanged, object: nil)
+                    NotificationCenter.default.post(name: .filamentDataChanged, object: nil)
                     dismiss()
                 }.foregroundStyle(.red)
                 Spacer()
@@ -1568,7 +1564,7 @@ struct EditDeviceView: View {
                     device.notes = notes
                     device.imageData = croppedDeviceImageData()
                     try? modelContext.save()
-                    NotificationCenter.default.post(name: filamentDataChanged, object: nil)
+                    NotificationCenter.default.post(name: .filamentDataChanged, object: nil)
                     dismiss()
                 }.keyboardShortcut(.defaultAction).buttonStyle(.borderedProminent)
                 .disabled(brand.isEmpty || modelName.isEmpty || (Double(purchasePrice) ?? 0) <= 0)

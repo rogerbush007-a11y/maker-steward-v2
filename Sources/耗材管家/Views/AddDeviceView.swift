@@ -191,7 +191,7 @@ struct AddDeviceView: View {
         )
         modelContext.insert(device)
         try? modelContext.save()
-        NotificationCenter.default.post(name: Notification.Name("filamentDataChanged"), object: nil)
+        NotificationCenter.default.post(name: .filamentDataChanged, object: nil)
         return nil
     }
 }
