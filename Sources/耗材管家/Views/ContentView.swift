@@ -784,6 +784,7 @@ struct FilamentMiniCard: View {
     @State private var consumeWeight = ""
     @State private var consumeModelName = ""
     @State private var productItems: [ProductItem] = [ProductItem()]
+    @State private var consumeValidationMessage: String?
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Product.createdAt, order: .reverse) private var availableProducts: [Product]
 
@@ -911,8 +912,15 @@ struct FilamentMiniCard: View {
                                             }
                                         }
                                         .labelsHidden()
+                                        .onChange(of: item.productID) { _, _ in
+                                            recalcConsumeWeight()
+                                        }
+                                        .onChange(of: item.quantity) { _, _ in
+                                            recalcConsumeWeight()
+                                        }
                                         Button {
                                             productItems.removeAll { $0.id == item.id }
+                                            recalcConsumeWeight()
                                         } label: {
                                             Image(systemName: "trash").font(.caption)
                                         }
@@ -957,6 +965,14 @@ struct FilamentMiniCard: View {
         }
         .padding(12)
         .frame(width: 320, height: 480)
+        .alert("无法入库", isPresented: Binding(
+            get: { consumeValidationMessage != nil },
+            set: { if !$0 { consumeValidationMessage = nil } }
+        )) {
+            Button("知道了", role: .cancel) { consumeValidationMessage = nil }
+        } message: {
+            Text(consumeValidationMessage ?? "")
+        }
     }
 
     private func recognizeSlicerScreenshot() {
@@ -1016,16 +1032,24 @@ struct FilamentMiniCard: View {
         }
 
         if !selectedItems.isEmpty {
-            let totalQuantity = selectedItems.reduce(0) { $0 + $1.quantity }
             let unitMaterialCost = filament.price / Double(max(filament.weight, 1))
-            let addedCostPerUnit = unitMaterialCost * Double(used) / Double(max(totalQuantity, 1))
+            let totalRequiredGrams = selectedItems.reduce(0) { $0 + $1.product.requiredGrams * $1.quantity }
+            if totalRequiredGrams > filament.remainingWeight {
+                consumeValidationMessage = "所选产品需要 \(totalRequiredGrams)g，当前这卷只剩 \(filament.remainingWeight)g。请减少入库数量或换一卷耗材。"
+                consumeWeight = "\(totalRequiredGrams)"
+                return
+            }
             for item in selectedItems {
                 let oldStock = item.product.stock
                 let newStock = oldStock + item.quantity
                 if newStock > 0 {
+                    // 按 requiredGrams 权重分摊实际消耗克数
+                    let itemGrams = item.product.requiredGrams * item.quantity
+                    let actualGrams = totalRequiredGrams > 0 ? used * itemGrams / totalRequiredGrams : used / max(selectedItems.count, 1)
+                    let itemMaterialCost = unitMaterialCost * Double(max(actualGrams, 0))
                     let oldCost = item.product.costPerUnit * Double(oldStock)
-                    let addedCost = addedCostPerUnit * Double(item.quantity)
-                    item.product.costPerUnit = (oldCost + addedCost) / Double(newStock)
+                    let addedCostPerItem = itemMaterialCost / Double(max(item.quantity, 1))
+                    item.product.costPerUnit = (oldCost + addedCostPerItem * Double(item.quantity)) / Double(newStock)
                 }
                 item.product.stock = newStock
             }
@@ -1036,6 +1060,19 @@ struct FilamentMiniCard: View {
         showConsumePopover = false
         consumeWeight = ""; consumeModelName = ""
         productItems = [ProductItem()]
+    }
+
+    private func recalcConsumeWeight() {
+        let totalGrams = productItems.reduce(0) { acc, item in
+            guard let id = item.productID,
+                  let product = availableProducts.first(where: { $0.persistentModelID == id }) else { return acc }
+            return acc + product.requiredGrams * item.quantity
+        }
+        if totalGrams > 0 {
+            consumeWeight = "\(totalGrams)"
+        } else if productItems.contains(where: { $0.productID == nil }) {
+            consumeWeight = ""
+        }
     }
 
     private func showConsumptionPopover() {

@@ -515,7 +515,7 @@ struct EditProductView: View {
     @State private var useCustomColor = false
     @State private var customColor = ""
     @State private var stock = 1
-    @State private var costStr = ""
+    @State private var requiredGrams = 10
     @State private var alertThreshold = 1
     @State private var imageZoom: CGFloat = 80
     @State private var showCameraEdit = false
@@ -591,9 +591,11 @@ struct EditProductView: View {
                     Stepper(value: $stock, in: 0...999) { Text("\(stock) 个") }
                 }
                 HStack {
-                    Text("成本").frame(width: 60, alignment: .leading)
-                    TextField("¥", text: $costStr).textFieldStyle(.roundedBorder).frame(width: 100)
-                    Text("元/个").foregroundStyle(.secondary).font(.caption)
+                    Text("耗材").frame(width: 60, alignment: .leading)
+                    Stepper(value: $requiredGrams, in: 1...9999, step: 1) {
+                        Text("\(requiredGrams) g/个").frame(width: 80, alignment: .leading)
+                    }.controlSize(.small)
+                    Text("消耗耗材时自动匹配").font(.caption).foregroundStyle(.tertiary)
                 }
                 HStack {
                     Text("预警").frame(width: 60, alignment: .leading)
@@ -625,7 +627,7 @@ struct EditProductView: View {
             specs = product.specs
             color = product.color
             stock = product.stock
-            costStr = String(format: "%.1f", product.costPerUnit)
+            requiredGrams = product.requiredGrams
             alertThreshold = product.alertThreshold
         }
     }
@@ -720,7 +722,7 @@ struct EditProductView: View {
         product.specs = specs
         product.color = useCustomColor ? customColor : color
         product.stock = stock
-        if let c = Double(costStr) { product.costPerUnit = c }
+        product.requiredGrams = requiredGrams
         product.alertThreshold = alertThreshold
 
         // 应用缩放裁剪到图片
@@ -979,7 +981,7 @@ struct AddProductView: View {
     @State private var useCustomColor = false
     @State private var customColor = ""
     @State private var priceStr = ""
-    @State private var costStr = ""
+    @State private var requiredGrams = 10
     @State private var alertThreshold = 1
     @State private var imageData: Data? = nil
     @State private var showCameraAdd = false
@@ -1043,9 +1045,11 @@ struct AddProductView: View {
                             .foregroundStyle(.tertiary)
                     }
                     HStack {
-                        Text("成本").frame(width: 60, alignment: .leading)
-                        TextField("¥", text: $costStr).textFieldStyle(.roundedBorder).frame(width: 100)
-                        Text("元/个").foregroundStyle(.secondary).font(.caption)
+                        Text("耗材").frame(width: 60, alignment: .leading)
+                        Stepper(value: $requiredGrams, in: 1...9999, step: 1) {
+                            Text("\(requiredGrams) g/个").frame(width: 80, alignment: .leading)
+                        }.controlSize(.small)
+                        Text("消耗耗材时自动匹配").font(.caption).foregroundStyle(.tertiary)
                     }
                     HStack {
                         Text("定价").frame(width: 60, alignment: .leading)
@@ -1066,7 +1070,7 @@ struct AddProductView: View {
                 Button("保存") {
                     let p = Product(name: name, specs: specs, color: useCustomColor ? customColor : color,
                                    stock: 0, price: Double(priceStr) ?? 0,
-                                   costPerUnit: Double(costStr) ?? 0, alertThreshold: alertThreshold,
+                                   costPerUnit: 0, alertThreshold: alertThreshold, requiredGrams: requiredGrams,
                                    imageData: imageData)
                     modelContext.insert(p)
                     try? modelContext.save()

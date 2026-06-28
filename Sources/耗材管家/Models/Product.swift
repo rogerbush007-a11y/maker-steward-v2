@@ -18,6 +18,8 @@ final class Product {
     var costPerUnit: Double
     /// 预警库存量
     var alertThreshold: Int
+    /// 单个产品需要的耗材克数（自动计算成本）
+    var requiredGrams: Int = 0
     /// 产品图片（正方形，存为 Data）
     var imageData: Data?
     /// 关联的消耗记录
@@ -43,7 +45,7 @@ final class Product {
         max(0, Int(round(weeklySalesAverage)))
     }
 
-    init(name: String, specs: String, color: String, stock: Int, price: Double, costPerUnit: Double = 0, alertThreshold: Int = 0, imageData: Data? = nil, createdAt: Date = .now) {
+    init(name: String, specs: String, color: String, stock: Int, price: Double, costPerUnit: Double = 0, alertThreshold: Int = 0, requiredGrams: Int = 0, imageData: Data? = nil, createdAt: Date = .now) {
         self.name = name
         self.specs = specs
         self.color = color
@@ -51,6 +53,7 @@ final class Product {
         self.price = price
         self.costPerUnit = costPerUnit
         self.alertThreshold = alertThreshold
+        self.requiredGrams = requiredGrams
         self.imageData = imageData
         self.createdAt = createdAt
     }
