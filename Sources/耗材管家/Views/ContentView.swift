@@ -202,10 +202,6 @@ struct ContentView: View {
         .onAppear {
             store = FilamentStore(modelContext: modelContext)
             refreshData()
-            // 监听数据变更通知
-            NotificationCenter.default.addObserver(forName: filamentDataChanged, object: nil, queue: .main) { _ in
-                refreshData()
-            }
         }
         .onReceive(NotificationCenter.default.publisher(for: filamentDataChanged)) { _ in
             refreshData()
@@ -791,6 +787,7 @@ struct FilamentMiniCard: View {
     @State private var consumeModelName = ""
     @State private var productItems: [ProductItem] = [ProductItem()]
     @Environment(\.modelContext) private var modelContext
+    @Query(sort: \Product.createdAt, order: .reverse) private var availableProducts: [Product]
 
     var body: some View {
         HStack(spacing: 8) {
@@ -891,54 +888,56 @@ struct FilamentMiniCard: View {
                         .buttonStyle(.borderless).font(.caption).foregroundStyle(.blue)
 
                         if filament.remainingWeight < 100 {
-                            Button("这卷用完了（剩\(filament.remainingWeight)g）") {
-                                let used = filament.remainingWeight
-                                filament.remainingWeight = 0
-                                let record = ConsumptionRecord(filament: filament, weightUsed: used, modelName: consumeModelName, createdAt: .now)
-                                modelContext.insert(record)
-                                try? modelContext.save()
-                                NotificationCenter.default.post(name: filamentDataChanged, object: nil)
+                            Button("剩余废料，标记已用完（剩\(filament.remainingWeight)g）") {
+                                store?.markAsUsedUp(filament: filament)
                                 showConsumePopover = false
                             }
                             .buttonStyle(.bordered).tint(.red).controlSize(.small)
                         }
                     }
 
-                    // 产品列表（支持多个）
-                    GroupBox("转为产品（可选）") {
-                        ForEach($productItems) { $item in
-                            VStack(spacing: 6) {
-                                HStack {
-                                    Text("名称").frame(width: 40, alignment: .leading)
-                                    ConsumeTextField(text: $item.name, placeholder: "产品名称").frame(height: 20)
-                                    Button {
-                                        productItems.removeAll { $0.id == item.id }
-                                    } label: {
-                                        Image(systemName: "trash").font(.caption)
+                    GroupBox("入库到已有产品（可选）") {
+                        if availableProducts.isEmpty {
+                            Text("请先在产品页新增产品档案")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        } else {
+                            ForEach($productItems) { $item in
+                                VStack(spacing: 6) {
+                                    HStack {
+                                        Text("产品").frame(width: 40, alignment: .leading)
+                                        Picker("", selection: $item.productID) {
+                                            Text("请选择").tag(nil as PersistentIdentifier?)
+                                            ForEach(availableProducts) { product in
+                                                Text(productOptionTitle(product))
+                                                    .tag(Optional(product.persistentModelID))
+                                            }
+                                        }
+                                        .labelsHidden()
+                                        Button {
+                                            productItems.removeAll { $0.id == item.id }
+                                        } label: {
+                                            Image(systemName: "trash").font(.caption)
+                                        }
+                                        .buttonStyle(.plain).foregroundStyle(.red)
+                                        .disabled(productItems.count <= 1)
                                     }
-                                    .buttonStyle(.plain).foregroundStyle(.red)
-                                    .disabled(productItems.count <= 1)
+                                    HStack {
+                                        Text("数量").frame(width: 40, alignment: .leading)
+                                        Stepper(value: $item.quantity, in: 1...999) {
+                                            Text("\(item.quantity) 个").frame(width: 50, alignment: .leading)
+                                        }.controlSize(.small)
+                                    }
                                 }
-                                HStack {
-                                    Text("规格").frame(width: 40, alignment: .leading)
-                                    ConsumeTextField(text: $item.specs, placeholder: "如 8×5×3cm").frame(height: 20)
-                                }
-                                HStack {
-                                    Text("数量").frame(width: 40, alignment: .leading)
-                                    Stepper(value: $item.quantity, in: 1...999) {
-                                        Text("\(item.quantity) 个").frame(width: 50, alignment: .leading)
-                                    }.controlSize(.small)
-                                }
-                                ProductImagePicker(imageData: $item.imageData)
-                                    .frame(maxWidth: .infinity, alignment: .center)
+                                .padding(6)
+                                .glassPanel(cornerRadius: 6, opacity: 0.38)
                             }
-                            .padding(6)
-                            .glassPanel(cornerRadius: 6, opacity: 0.38)
+                            Button("＋ 添加入库产品") {
+                                productItems.append(ProductItem())
+                            }
+                            .buttonStyle(.borderless).font(.caption)
                         }
-                        Button("＋ 添加产品") {
-                            productItems.append(ProductItem())
-                        }
-                        .buttonStyle(.borderless).font(.caption)
                     }
 
                     HStack {
@@ -1014,54 +1013,29 @@ struct FilamentMiniCard: View {
         let used = min(parsedGramInput(consumeWeight) ?? 0, filament.remainingWeight)
         guard used > 0 else { return }
 
-        filament.remainingWeight -= used
+        let selectedItems = productItems.compactMap { item -> (product: Product, quantity: Int)? in
+            guard let id = item.productID,
+                  let product = availableProducts.first(where: { $0.persistentModelID == id }) else { return nil }
+            return (product, item.quantity)
+        }
 
-        // 是否创建产品
-        var product: Product?
-        let validItems = productItems.filter { !$0.name.isEmpty }
-        if !validItems.isEmpty {
-            // 只关联第一个产品到消耗记录
-            let firstItem = validItems[0]
-            // 消耗的那一卷购入价格换算到1g
-            let unitCost = filament.price / Double(filament.weight)
-            let totalUsed = Double(used)
-            product = Product(
-                name: firstItem.name,
-                specs: firstItem.specs,
-                color: filament.color,
-                stock: firstItem.quantity,
-                price: 0,
-                costPerUnit: unitCost * totalUsed / Double(firstItem.quantity),
-                imageData: firstItem.imageData
-            )
-            modelContext.insert(product!)
-
-            // 其余产品各自创建
-            for item in validItems.dropFirst() {
-                let p = Product(
-                    name: item.name,
-                    specs: item.specs,
-                    color: filament.color,
-                    stock: item.quantity,
-                    price: 0,
-                    costPerUnit: unitCost * totalUsed / Double(item.quantity),
-                    imageData: item.imageData
-                )
-                modelContext.insert(p)
+        if !selectedItems.isEmpty {
+            let totalQuantity = selectedItems.reduce(0) { $0 + $1.quantity }
+            let unitMaterialCost = filament.price / Double(max(filament.weight, 1))
+            let addedCostPerUnit = unitMaterialCost * Double(used) / Double(max(totalQuantity, 1))
+            for item in selectedItems {
+                let oldStock = item.product.stock
+                let newStock = oldStock + item.quantity
+                if newStock > 0 {
+                    let oldCost = item.product.costPerUnit * Double(oldStock)
+                    let addedCost = addedCostPerUnit * Double(item.quantity)
+                    item.product.costPerUnit = (oldCost + addedCost) / Double(newStock)
+                }
+                item.product.stock = newStock
             }
         }
 
-        let record = ConsumptionRecord(
-            filament: filament,
-            product: product,
-            weightUsed: used,
-            modelName: consumeModelName,
-            createdAt: .now
-        )
-        modelContext.insert(record)
-
-        try? modelContext.save()
-        NotificationCenter.default.post(name: filamentDataChanged, object: nil)
+        store?.recordConsumption(filament: filament, weightUsed: used, modelName: consumeModelName, product: selectedItems.first?.product)
 
         showConsumePopover = false
         consumeWeight = ""; consumeModelName = ""
@@ -1070,6 +1044,12 @@ struct FilamentMiniCard: View {
 
     private func recordConsumption() {
         showConsumePopover = true
+    }
+
+    private func productOptionTitle(_ product: Product) -> String {
+        let specs = product.specs.trimmingCharacters(in: .whitespacesAndNewlines)
+        let suffix = specs.isEmpty ? "" : " · \(specs)"
+        return "\(product.name)\(suffix) · 库存\(product.stock)"
     }
 
     /// 进度条颜色
@@ -1257,11 +1237,8 @@ struct TrafficTitlebar<Right: View>: View {
 
 struct ProductItem: Identifiable {
     let id = UUID()
-    var name: String = ""
-    var specs: String = ""
+    var productID: PersistentIdentifier?
     var quantity: Int = 1
-    var price: String = ""
-    var imageData: Data? = nil
 }
 
 // MARK: - 颜色方块（支持透明马赛克）

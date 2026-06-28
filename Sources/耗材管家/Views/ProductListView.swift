@@ -4,16 +4,32 @@ import Charts
 import Vision
 import CoreImage
 
-/// 产品分组（按名称+颜色）
+/// 产品分组（按名称+规格）
 struct ProductGroup: Identifiable, Hashable {
     let id: String
     let name: String
-    let color: String
+    let specs: String
     var products: [Product]
 
     var totalStock: Int { products.reduce(0) { $0 + $1.stock } }
-    var totalSales: Int { products.reduce(0) { $0 + $1.sales.count } }
+    var totalSales: Int { products.reduce(0) { total, product in total + product.sales.reduce(0) { $0 + $1.quantity } } }
     var needsReorder: Bool { products.contains(where: \.needsReorder) }
+    var representative: Product? { products.sorted { $0.createdAt > $1.createdAt }.first }
+    var colors: [String] {
+        products.map(\.color).filter { !$0.isEmpty }.reduce(into: [String]()) { result, color in
+            if !result.contains(where: { $0.caseInsensitiveCompare(color) == .orderedSame }) {
+                result.append(color)
+            }
+        }
+    }
+
+    static func idFor(name: String, specs: String) -> String {
+        "\(name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())|\(specs.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())"
+    }
+
+    static func idFor(product: Product) -> String {
+        idFor(name: product.name, specs: product.specs)
+    }
 
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
     static func == (lhs: ProductGroup, rhs: ProductGroup) -> Bool { lhs.id == rhs.id }
@@ -76,19 +92,42 @@ struct ProductListView: View {
 
     private var filteredProducts: [Product] {
         if searchText.isEmpty { return products }
-        return products.filter { $0.name.localizedCaseInsensitiveContains(searchText) || $0.color.localizedCaseInsensitiveContains(searchText) }
+        return products.filter {
+            $0.name.localizedCaseInsensitiveContains(searchText)
+            || $0.specs.localizedCaseInsensitiveContains(searchText)
+            || $0.color.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
+    private var filteredGroups: [ProductGroup] {
+        Dictionary(grouping: filteredProducts) { ProductGroup.idFor(product: $0) }
+            .compactMap { id, list in
+                guard let first = list.first else { return nil }
+                return ProductGroup(
+                    id: id,
+                    name: first.name.trimmingCharacters(in: .whitespacesAndNewlines),
+                    specs: first.specs.trimmingCharacters(in: .whitespacesAndNewlines),
+                    products: list
+                )
+            }
+            .sorted {
+                if $0.needsReorder != $1.needsReorder { return $0.needsReorder && !$1.needsReorder }
+                return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
     }
 
     private var productList: some View {
         ScrollView {
             VStack(spacing: 0) {
-                ForEach(filteredProducts) { product in
-                    ProductRow(product: product, isSelected: selectedProduct?.id == product.id)
+                ForEach(filteredGroups) { group in
+                    ProductGroupRow(group: group, isSelected: selectedProduct.map { ProductGroup.idFor(product: $0) } == group.id)
                         .frame(height: 44)
                         .contentShape(Rectangle())
-                        .onTapGesture { selectedProduct = product }
+                        .onTapGesture { selectedProduct = group.representative }
                         .contextMenu {
-                            Button("编辑") { editingProduct = product }
+                            if let product = group.representative {
+                                Button("编辑代表产品") { editingProduct = product }
+                            }
                         }
                     Divider().padding(.leading, 24)
                 }
@@ -126,6 +165,43 @@ struct ProductRow: View {
                     .foregroundStyle(product.needsReorder ? .red : .secondary)
                     .frame(maxWidth: .infinity, alignment: .center)
                 Text("售\(product.sales.count)").font(.caption).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(isSelected ? AnyShapeStyle(.regularMaterial) : AnyShapeStyle(Color.clear))
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .padding(.horizontal, 6)
+    }
+}
+
+struct ProductGroupRow: View {
+    let group: ProductGroup
+    var isSelected: Bool = false
+
+    var body: some View {
+        VStack(spacing: 4) {
+            HStack(spacing: 8) {
+                if let data = group.representative?.imageData, let nsImage = NSImage(data: data) {
+                    Image(nsImage: nsImage).resizable().aspectRatio(contentMode: .fill)
+                        .frame(width: 22, height: 22).clipShape(RoundedRectangle(cornerRadius: 4))
+                } else if let color = group.colors.first {
+                    ColorSwatch(color, size: 12)
+                }
+                Text(group.name).font(.body).fontWeight(.medium).lineLimit(1)
+                if group.needsReorder {
+                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange).font(.caption)
+                }
+                Spacer()
+            }
+            HStack(spacing: 0) {
+                Text(group.specs.isEmpty ? "未填规格" : group.specs).font(.caption).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text("库存\(group.totalStock)").font(.caption)
+                    .foregroundStyle(group.needsReorder ? .red : .secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                Text("售\(group.totalSales)").font(.caption).foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
@@ -902,7 +978,6 @@ struct AddProductView: View {
     @State private var color = ""
     @State private var useCustomColor = false
     @State private var customColor = ""
-    @State private var stock = 1
     @State private var priceStr = ""
     @State private var costStr = ""
     @State private var alertThreshold = 1
@@ -961,7 +1036,11 @@ struct AddProductView: View {
                     Divider()
                     HStack {
                         Text("库存").frame(width: 60, alignment: .leading)
-                        Stepper(value: $stock, in: 0...999) { Text("\(stock) 个") }
+                        Text("0 个")
+                            .foregroundStyle(.secondary)
+                        Text("由耗材消耗入库")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
                     }
                     HStack {
                         Text("成本").frame(width: 60, alignment: .leading)
@@ -986,7 +1065,7 @@ struct AddProductView: View {
                 Spacer()
                 Button("保存") {
                     let p = Product(name: name, specs: specs, color: useCustomColor ? customColor : color,
-                                   stock: stock, price: Double(priceStr) ?? 0,
+                                   stock: 0, price: Double(priceStr) ?? 0,
                                    costPerUnit: Double(costStr) ?? 0, alertThreshold: alertThreshold,
                                    imageData: imageData)
                     modelContext.insert(p)

@@ -37,20 +37,32 @@ final class FilamentStore {
         NotificationCenter.default.post(name: filamentDataChanged, object: nil)
     }
 
-    func recordConsumption(filament: Filament, weightUsed: Int, modelName: String = "") {
-        filament.remainingWeight = max(0, filament.remainingWeight - weightUsed)
+    func recordConsumption(filament: Filament, weightUsed: Int, modelName: String = "", product: Product? = nil) {
+        let actualUsed = min(weightUsed, filament.remainingWeight)
+        guard actualUsed > 0 else { return }
+        filament.remainingWeight -= actualUsed
+
+        let record = ConsumptionRecord(
+            filament: filament,
+            product: product,
+            weightUsed: actualUsed,
+            modelName: modelName
+        )
+        filament.consumptions.append(record)
+        modelContext.insert(record)
+
         if filament.remainingWeight <= 0 {
-            // 用完即删
-            modelContext.delete(filament)
-        } else {
-            let record = ConsumptionRecord(
-                filament: filament,
-                weightUsed: weightUsed,
-                modelName: modelName
-            )
-            filament.consumptions.append(record)
-            modelContext.insert(record)
+            filament.remainingWeight = 0
+            filament.status = FilamentStatus.usedUp.rawValue
         }
+        try? modelContext.save()
+        NotificationCenter.default.post(name: filamentDataChanged, object: nil)
+    }
+
+    /// 将耗材标记为已用完（不产生消耗记录，适用于处理剩余废料）
+    func markAsUsedUp(filament: Filament) {
+        filament.remainingWeight = 0
+        filament.status = FilamentStatus.usedUp.rawValue
         try? modelContext.save()
         NotificationCenter.default.post(name: filamentDataChanged, object: nil)
     }

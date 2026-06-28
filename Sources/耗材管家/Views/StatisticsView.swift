@@ -2,6 +2,51 @@ import SwiftUI
 import Charts
 import SwiftData
 
+private struct ProductSalesGroup: Identifiable {
+    let id: String
+    let name: String
+    let specs: String
+    let products: [Product]
+
+    var title: String {
+        let trimmedSpecs = specs.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmedSpecs.isEmpty ? name : "\(name) · \(trimmedSpecs)"
+    }
+
+    var representative: Product? {
+        products.sorted { $0.createdAt > $1.createdAt }.first
+    }
+
+    var salesDetails: [(sale: SaleRecord, product: Product)] {
+        products
+            .flatMap { product in product.sales.map { (sale: $0, product: product) } }
+            .sorted { $0.sale.createdAt > $1.sale.createdAt }
+    }
+
+    var totalQuantity: Int {
+        salesDetails.reduce(0) { $0 + $1.sale.quantity }
+    }
+
+    var totalRevenue: Double {
+        salesDetails.reduce(0.0) { $0 + $1.sale.revenue }
+    }
+
+    var totalCost: Double {
+        salesDetails.reduce(0.0) { sum, detail in
+            let materialCost = Double(detail.sale.quantity) * detail.product.costPerUnit
+            return sum + materialCost + detail.sale.shippingCost + detail.sale.packagingCost + detail.sale.platformFee
+        }
+    }
+
+    var profit: Double {
+        totalRevenue - totalCost
+    }
+
+    static func idFor(product: Product) -> String {
+        "\(product.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())|\(product.specs.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())"
+    }
+}
+
 struct StatisticsView: View {
     var isInline: Bool = false
     @Environment(\.dismiss) private var dismiss
@@ -198,42 +243,38 @@ struct StatisticsView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack { Image(systemName: "cart.fill").foregroundStyle(.blue); Text("产品销售分析").font(.headline) }
 
-            let products = allProducts.filter { !$0.sales.isEmpty }
-            if products.isEmpty {
+            let groups = productSalesGroups
+            if groups.isEmpty {
                 Text("暂无产品销售数据").foregroundStyle(.secondary).frame(maxWidth: .infinity, minHeight: 80)
             } else {
-                let totalSold = products.reduce(0) { $0 + $1.sales.reduce(0) { $0 + $1.quantity } }
-                let rankedProducts = products.sorted { a, b in
-                    a.sales.reduce(0) { $0 + $1.quantity } > b.sales.reduce(0) { $0 + $1.quantity }
-                }
+                let totalSold = groups.reduce(0) { $0 + $1.totalQuantity }
+                let rankedGroups = groups.sorted { $0.totalQuantity > $1.totalQuantity }
                 HStack(alignment: .center, spacing: 32) {
                     Spacer()
-                    Chart(rankedProducts, id: \.id) { p in
-                        let qty = p.sales.reduce(0) { $0 + $1.quantity }
-                        SectorMark(angle: .value("销量", qty), innerRadius: .ratio(0.5))
-                            .foregroundStyle(by: .value("产品", p.name))
+                    Chart(rankedGroups, id: \.id) { group in
+                        SectorMark(angle: .value("销量", group.totalQuantity), innerRadius: .ratio(0.5))
+                            .foregroundStyle(by: .value("产品", group.title))
                             .annotation(position: .overlay) {
-                                let pct = Double(qty) / Double(totalSold) * 100
+                                let pct = Double(group.totalQuantity) / Double(max(totalSold, 1)) * 100
                                 if pct > 8 { Text("\(String(format: "%.0f", pct))%").font(.caption).fontWeight(.bold).foregroundStyle(.white) }
                             }
                     }
                     .chartForegroundStyleScale(
-                        domain: rankedProducts.map(\.name),
-                        range: rankedProducts.indices.map { chartColor($0) }
+                        domain: rankedGroups.map(\.title),
+                        range: rankedGroups.indices.map { chartColor($0) }
                     )
                     .chartLegend(.hidden).frame(width: 160, height: 160)
 
                     VStack(spacing: 6) {
-                        ForEach(Array(rankedProducts.prefix(5).enumerated()), id: \.element.id) { i, p in
-                            let qty = p.sales.reduce(0) { $0 + $1.quantity }
-                            let pct = Double(qty) / Double(totalSold) * 100
+                        ForEach(Array(rankedGroups.prefix(5).enumerated()), id: \.element.id) { i, group in
+                            let pct = Double(group.totalQuantity) / Double(max(totalSold, 1)) * 100
                             HStack(spacing: 0) {
                                 Circle().fill(chartColor(i)).frame(width: 10, height: 10).padding(.trailing, 6)
-                                if let data = p.imageData, let img = NSImage(data: data) {
+                                if let data = group.representative?.imageData, let img = NSImage(data: data) {
                                     Image(nsImage: img).resizable().aspectRatio(contentMode: .fill).frame(width: 20, height: 20).clipShape(RoundedRectangle(cornerRadius: 4))
                                 }
-                                Text(p.name).font(.subheadline).lineLimit(1).frame(width: 100, alignment: .leading)
-                                Text("\(qty)个").font(.subheadline).fontWeight(.medium).frame(width: 40, alignment: .center)
+                                Text(group.title).font(.subheadline).lineLimit(1).frame(width: 100, alignment: .leading)
+                                Text("\(group.totalQuantity)个").font(.subheadline).fontWeight(.medium).frame(width: 40, alignment: .center)
                                 Text("\(String(format: "%.1f", pct))%").font(.subheadline).foregroundStyle(.secondary).frame(width: 50, alignment: .trailing)
                             }.padding(.vertical, 6)
                         }
@@ -247,9 +288,9 @@ struct StatisticsView: View {
                 HStack(spacing: 32) {
                     Spacer()
                     VStack(spacing: 4) {
-                        let ranked = products.sorted { a, b in a.sales.reduce(0) { $0 + $1.revenue } > b.sales.reduce(0) { $0 + $1.revenue } }
-                        ForEach(Array(ranked.enumerated()), id: \.element.id) { i, p in
-                            salesRankRow(rank: i + 1, product: p)
+                        let ranked = groups.sorted { $0.totalRevenue > $1.totalRevenue }
+                        ForEach(Array(ranked.enumerated()), id: \.element.id) { i, group in
+                            salesRankRow(rank: i + 1, group: group)
                         }
                     }.frame(width: 360)
                     Spacer()
@@ -338,30 +379,23 @@ struct StatisticsView: View {
     }
 
     @ViewBuilder
-    private func salesRankRow(rank: Int, product: Product) -> some View {
-        let totalQty = product.sales.reduce(0) { $0 + $1.quantity }
-        let totalRev = product.sales.reduce(0.0) { $0 + $1.revenue }
-        let totalCost = product.sales.reduce(0.0) { sum, sale in
-            let mat = Double(sale.quantity) * (product.costPerUnit)
-            return sum + mat + sale.shippingCost + sale.packagingCost + sale.platformFee
-        }
-        let profit = totalRev - totalCost
-        let isExpanded = expandedProductID == "\(product.name)|\(product.color)"
+    private func salesRankRow(rank: Int, group: ProductSalesGroup) -> some View {
+        let isExpanded = expandedProductID == group.id
 
         VStack(spacing: 0) {
-            Button(action: { withAnimation(.easeInOut(duration: 0.15)) { expandedProductID = isExpanded ? nil : "\(product.name)|\(product.color)" } }) {
+            Button(action: { withAnimation(.easeInOut(duration: 0.15)) { expandedProductID = isExpanded ? nil : group.id } }) {
                 HStack(spacing: 4) {
                     Text("#\(rank)").font(.caption).foregroundStyle(.secondary).frame(width: 18, alignment: .leading)
-                    if let data = product.imageData, let img = NSImage(data: data) {
+                    if let data = group.representative?.imageData, let img = NSImage(data: data) {
                         Image(nsImage: img).resizable().aspectRatio(contentMode: .fill).frame(width: 20, height: 20).clipShape(RoundedRectangle(cornerRadius: 4))
                     }
-                    Text(product.name).font(.subheadline).fontWeight(.medium).lineLimit(1)
+                    Text(group.title).font(.subheadline).fontWeight(.medium).lineLimit(1)
                         .frame(maxWidth: 130, alignment: .leading)
                     Color.clear.frame(width: 60)
-                    Text("售\(totalQty)").font(.caption).foregroundStyle(.secondary).frame(width: 24, alignment: .trailing)
-                    Text("¥\(String(format: "%.0f", totalRev))").font(.subheadline).fontWeight(.medium).frame(width: 44, alignment: .trailing)
-                    Text("+¥\(String(format: "%.2f", profit))").font(.caption).fontWeight(.semibold)
-                        .foregroundStyle(profit >= 0 ? .green : .red).frame(width: 56, alignment: .trailing)
+                    Text("售\(group.totalQuantity)").font(.caption).foregroundStyle(.secondary).frame(width: 24, alignment: .trailing)
+                    Text("¥\(String(format: "%.0f", group.totalRevenue))").font(.subheadline).fontWeight(.medium).frame(width: 44, alignment: .trailing)
+                    Text("+¥\(String(format: "%.2f", group.profit))").font(.caption).fontWeight(.semibold)
+                        .foregroundStyle(group.profit >= 0 ? .green : .red).frame(width: 56, alignment: .trailing)
                     Image(systemName: "chevron.down").font(.caption2).foregroundStyle(.tertiary).frame(width: 12)
                         .rotationEffect(.degrees(isExpanded ? 180 : 0))
                 }.padding(.vertical, 6).padding(.horizontal, 4).contentShape(Rectangle())
@@ -371,9 +405,10 @@ struct StatisticsView: View {
             if isExpanded {
                 VStack(spacing: 0) {
                     Divider().padding(.vertical, 4)
-                    ForEach(product.sales.sorted(by: { $0.createdAt > $1.createdAt })) { sale in
+                    ForEach(group.salesDetails, id: \.sale.persistentModelID) { detail in
+                        let sale = detail.sale
                         let saleRev = Double(sale.quantity) * sale.salePrice
-                        let saleMat = Double(sale.quantity) * product.costPerUnit
+                        let saleMat = Double(sale.quantity) * detail.product.costPerUnit
                         let saleProfit = saleRev - saleMat - sale.shippingCost - sale.packagingCost - sale.platformFee
                         HStack(spacing: 4) {
                             Text(sale.createdAt.formatted(.dateTime.month().day())).font(.caption).foregroundStyle(.secondary).fixedSize()
@@ -387,6 +422,19 @@ struct StatisticsView: View {
                 }.padding(.leading, 20).glassPanel(cornerRadius: 6, opacity: 0.34)
             }
         }
+    }
+
+    private var productSalesGroups: [ProductSalesGroup] {
+        Dictionary(grouping: allProducts.filter { !$0.sales.isEmpty }) { ProductSalesGroup.idFor(product: $0) }
+            .compactMap { id, products in
+                guard let first = products.first else { return nil }
+                return ProductSalesGroup(
+                    id: id,
+                    name: first.name.trimmingCharacters(in: .whitespacesAndNewlines),
+                    specs: first.specs.trimmingCharacters(in: .whitespacesAndNewlines),
+                    products: products
+                )
+            }
     }
 
     // MARK: - 耗材消耗分析
