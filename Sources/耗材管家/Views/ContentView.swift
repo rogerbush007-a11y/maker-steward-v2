@@ -787,6 +787,7 @@ struct FilamentMiniCard: View {
     @State private var consumeValidationMessage: String?
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Product.createdAt, order: .reverse) private var availableProducts: [Product]
+    @Query(sort: \ConsumptionRecord.createdAt, order: .reverse) private var consumptionRecords: [ConsumptionRecord]
 
     var body: some View {
         HStack(spacing: 8) {
@@ -1033,7 +1034,11 @@ struct FilamentMiniCard: View {
 
         if !selectedItems.isEmpty {
             let unitMaterialCost = filament.price / Double(max(filament.weight, 1))
-            let totalRequiredGrams = selectedItems.reduce(0) { $0 + $1.product.requiredGrams * $1.quantity }
+            let totalRequiredGrams = selectedItems.reduce(0) { $0 + gramsPerUnit(for: $1.product) * $1.quantity }
+            guard totalRequiredGrams > 0 else {
+                consumeValidationMessage = "所选产品还没有设置耗材克数，请先在产品编辑页填写“耗材 g/个”。"
+                return
+            }
             if totalRequiredGrams > filament.remainingWeight {
                 consumeValidationMessage = "所选产品需要 \(totalRequiredGrams)g，当前这卷只剩 \(filament.remainingWeight)g。请减少入库数量或换一卷耗材。"
                 consumeWeight = "\(totalRequiredGrams)"
@@ -1044,9 +1049,9 @@ struct FilamentMiniCard: View {
                 let newStock = oldStock + item.quantity
                 if newStock > 0 {
                     // 按 requiredGrams 权重分摊实际消耗克数
-                    let itemGrams = item.product.requiredGrams * item.quantity
-                    let actualGrams = totalRequiredGrams > 0 ? used * itemGrams / totalRequiredGrams : used / max(selectedItems.count, 1)
-                    let itemMaterialCost = unitMaterialCost * Double(max(actualGrams, 0))
+                    let itemGrams = gramsPerUnit(for: item.product) * item.quantity
+                    let actualGrams = Double(used) * Double(itemGrams) / Double(totalRequiredGrams)
+                    let itemMaterialCost = unitMaterialCost * max(actualGrams, 0)
                     let oldCost = item.product.costPerUnit * Double(oldStock)
                     let addedCostPerItem = itemMaterialCost / Double(max(item.quantity, 1))
                     item.product.costPerUnit = (oldCost + addedCostPerItem * Double(item.quantity)) / Double(newStock)
@@ -1066,13 +1071,30 @@ struct FilamentMiniCard: View {
         let totalGrams = productItems.reduce(0) { acc, item in
             guard let id = item.productID,
                   let product = availableProducts.first(where: { $0.persistentModelID == id }) else { return acc }
-            return acc + product.requiredGrams * item.quantity
+            return acc + gramsPerUnit(for: product) * item.quantity
         }
         if totalGrams > 0 {
             consumeWeight = "\(totalGrams)"
         } else if productItems.contains(where: { $0.productID == nil }) {
             consumeWeight = ""
         }
+    }
+
+    private func gramsPerUnit(for product: Product) -> Int {
+        if product.requiredGrams > 0 { return product.requiredGrams }
+
+        if let record = consumptionRecords.first(where: { record in
+            record.product?.persistentModelID == product.persistentModelID && record.weightUsed > 0
+        }) {
+            return record.weightUsed
+        }
+
+        let unitMaterialCost = filament.price / Double(max(filament.weight, 1))
+        if product.costPerUnit > 0, unitMaterialCost > 0 {
+            return max(1, Int((product.costPerUnit / unitMaterialCost).rounded()))
+        }
+
+        return 0
     }
 
     private func showConsumptionPopover() {
@@ -1082,7 +1104,9 @@ struct FilamentMiniCard: View {
     private func productOptionTitle(_ product: Product) -> String {
         let specs = product.specs.trimmingCharacters(in: .whitespacesAndNewlines)
         let suffix = specs.isEmpty ? "" : " · \(specs)"
-        return "\(product.name)\(suffix) · 库存\(product.stock)"
+        let grams = gramsPerUnit(for: product)
+        let gramsText = grams > 0 ? " · \(grams)g/个" : " · 耗材未设"
+        return "\(product.name)\(suffix)\(gramsText) · 库存\(product.stock)"
     }
 
     /// 进度条颜色

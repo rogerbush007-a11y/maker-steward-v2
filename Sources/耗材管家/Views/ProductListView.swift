@@ -977,9 +977,6 @@ struct AddProductView: View {
 
     @State private var name = ""
     @State private var specs = ""
-    @State private var color = ""
-    @State private var useCustomColor = false
-    @State private var customColor = ""
     @State private var priceStr = ""
     @State private var requiredGrams = 10
     @State private var alertThreshold = 1
@@ -1034,16 +1031,7 @@ struct AddProductView: View {
                         Text("规格").frame(width: 60, alignment: .leading)
                         TextField("如 8×5×3cm", text: $specs).textFieldStyle(.roundedBorder)
                     }
-                    PickerGroup(label: "颜色", selection: $color, useCustom: $useCustomColor, customText: $customColor, options: Filament.presetColors)
                     Divider()
-                    HStack {
-                        Text("库存").frame(width: 60, alignment: .leading)
-                        Text("0 个")
-                            .foregroundStyle(.secondary)
-                        Text("由耗材消耗入库")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                    }
                     HStack {
                         Text("耗材").frame(width: 60, alignment: .leading)
                         Stepper(value: $requiredGrams, in: 1...9999, step: 1) {
@@ -1068,7 +1056,7 @@ struct AddProductView: View {
             HStack {
                 Spacer()
                 Button("保存") {
-                    let p = Product(name: name, specs: specs, color: useCustomColor ? customColor : color,
+                    let p = Product(name: name, specs: specs, color: "",
                                    stock: 0, price: Double(priceStr) ?? 0,
                                    costPerUnit: 0, alertThreshold: alertThreshold, requiredGrams: requiredGrams,
                                    imageData: imageData)
@@ -1082,7 +1070,7 @@ struct AddProductView: View {
             }
             .padding(16)
         }
-        .frame(width: 360, height: 480)
+        .frame(width: 360, height: 420)
     }
 
     private func pickImage() {
